@@ -1,0 +1,16 @@
+@import "tailwindcss";
+
+@theme {
+  --color-sebastian-navy: #1B263B;
+  --color-sebastian-dark: #0D1B2A;
+  --color-sebastian-ivory: #F0EAD6;
+  --color-sebastian-gray: #415A77;
+  --color-sebastian-lightgray: #778DA9;
+  --color-sebastian-bg: #F8F9FA;
+}
+
+@layer base {
+  body {
+    @apply bg-sebastian-bg text-sebastian-dark font-sans antialiased;
+  }
+}
