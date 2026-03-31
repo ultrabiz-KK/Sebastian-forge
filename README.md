@@ -1,7 +1,133 @@
-# Tauri + React + Typescript
+# Sebastian — AI Work Supporter
 
-This template should help get you started developing with Tauri, React and Typescript in Vite.
+> 有能な執事のように、あなたの業務を静かに整えます。
 
-## Recommended IDE Setup
+業務中に残した雑多なメモを、AIが日報・タスク・週報へ自動整理するローカル常駐型デスクトップアプリです。
 
-- [VS Code](https://code.visualstudio.com/) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)
+---
+
+## 概要
+
+情報システム担当・社内兼務職など、**複数チャネルから突発的なタスクが飛び込む業務環境**向けに設計されています。
+
+記録の入口は極限まで軽く。整理・清書・候補提示はセバスチャンが行います。
+
+```
+日中: グローバルショートカットでメモを随時記録
+終業: 「1日を締める」で日報案を自動生成 → 確認・承認
+     → タスク候補をレビューしてタスク一覧へ反映
+週末: 週報案を自動生成 → 確認・承認
+```
+
+---
+
+## 主な機能
+
+### メモ
+- デイリーメモへの自由入力（構造化不要）
+- 1秒デバウンスによる自動保存
+- グローバルショートカット（`Ctrl+Shift+M`）でどこからでも即起動
+- 未整理メモの可視化（日報未作成時にバナー表示）
+
+### 日報
+- メモ＋タスク変更ログをもとにAIが日報案を生成
+- 編集可能なドラフト → 承認で `Nippo_yyyymmdd.md` として保存
+- 保存先フォルダは設定で変更可能
+
+### タスク管理
+- タスクの作成・編集・完了・保留・削除
+- AIがメモ・日報から新規タスク候補・更新候補を提案
+- 差分プレビュー（変更前 → 変更後を項目ごとに表示）
+- 反映前にユーザー確認必須（自動確定なし）
+- 全操作を監査ログに記録（手動操作 / AI提案を区別）
+
+### 週カレンダー
+- 月曜始まりの週表示
+- 期日付きタスクをカレンダー上に表示
+
+### 週報
+- 週内の日報＋タスクログからAIが週報案を生成
+- 承認で `Shuho_yyyymmdd.md` として保存
+
+### 朝のブリーフィング
+- アプリ起動時（1日1回）に当日期日・期限近・優先度高タスクを表示
+- 1日の立ち上がりを素早くサポート
+
+### 終業リマインド
+- 指定時刻にOS通知で「日報を締めませんか？」を通知
+- 通知クリックで日報ページへ直接遷移
+- 時刻・平日のみ通知を設定で変更可能
+
+---
+
+## 技術スタック
+
+| 領域 | 技術 |
+|------|------|
+| フレームワーク | [Tauri v2](https://tauri.app/) + [React 19](https://react.dev/) |
+| 言語 | TypeScript / Rust |
+| UI | Tailwind CSS v4 |
+| DB | SQLite（`tauri-plugin-sql`） |
+| AI | Gemini API（`gemini-2.5-flash` 推奨）/ Ollama（ローカルLLM）|
+| ビルドツール | Vite |
+
+---
+
+## セットアップ
+
+### 必要環境
+
+- [Node.js](https://nodejs.org/) 18以上
+- [Rust](https://www.rust-lang.org/tools/install)（`rustup` 経由推奨）
+- [Tauri CLI prerequisites](https://tauri.app/start/prerequisites/)（Windows: WebView2 / Build Tools）
+
+### インストール・起動
+
+```bash
+# 依存パッケージのインストール
+npm install
+
+# 開発サーバー起動
+npm run tauri dev
+
+# プロダクションビルド
+npm run tauri build
+```
+
+### AI設定
+
+アプリ起動後、**設定 → AI設定** から使用するプロバイダーを選択してください。
+
+**Gemini API（推奨）**
+1. [Google AI Studio](https://aistudio.google.com/apikey) で無料APIキーを取得
+2. 設定画面でAPIキーとモデル（`gemini-2.5-flash`）を入力
+
+**Ollama（ローカルLLM）**
+1. [Ollama](https://ollama.com) をインストール
+2. モデルをプル（例: `ollama pull qwen2.5:3b`）
+3. 設定画面でエンドポイントとモデル名を入力
+
+---
+
+## データの保存場所
+
+| データ | 保存先 |
+|--------|--------|
+| メモ・タスク・日報・週報（DB） | Tauriアプリデータディレクトリ（`%APPDATA%/sebastian/`） |
+| 日報Markdownファイル | 設定で指定したフォルダ |
+| 週報Markdownファイル | 設定で指定したフォルダ |
+
+---
+
+## 設計方針
+
+- **ローカル完結** — クラウド同期なし。データはすべて手元に。
+- **AI提案は必ずユーザー確認を経由** — 自動確定処理は一切行わない。
+- **AI失敗時もデータを守る** — メモ・タスクは常に手動で管理可能。
+- **軽量さ優先** — 常駐しても邪魔にならない起動速度を維持。
+
+---
+
+## ライセンス
+
+MIT
