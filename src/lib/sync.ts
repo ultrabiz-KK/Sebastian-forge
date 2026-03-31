@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import { format } from 'date-fns';
-import { getSetting, setSetting, SETTING_KEYS } from './settings';
+import { setSetting, SETTING_KEYS } from './settings';
 import { closeDb } from './db';
 
 const DB_FILENAME = 'sebastian.db';
@@ -11,8 +11,7 @@ function joinPath(dir: string, filename: string): string {
 }
 
 /** メインPCからサブPCへ：同期フォルダにDBをコピー */
-export async function pushSync(): Promise<void> {
-  const syncFolder = await getSetting(SETTING_KEYS.SYNC_FOLDER);
+export async function pushSync(syncFolder: string): Promise<void> {
   if (!syncFolder) throw new Error('同期フォルダが設定されていません');
 
   const dbPath = await invoke<string>('get_db_path');
@@ -27,8 +26,7 @@ export async function pushSync(): Promise<void> {
 }
 
 /** サブPCからメインPCへ：同期フォルダのDBで上書き（自動バックアップ付き） */
-export async function pullSync(): Promise<string> {
-  const syncFolder = await getSetting(SETTING_KEYS.SYNC_FOLDER);
+export async function pullSync(syncFolder: string): Promise<string> {
   if (!syncFolder) throw new Error('同期フォルダが設定されていません');
 
   const srcPath = joinPath(syncFolder, DB_FILENAME);

@@ -185,7 +185,7 @@ export default function Settings() {
     setSyncStatus('pushing');
     setSyncMsg('');
     try {
-      await pushSync();
+      await pushSync(form.syncFolder);
       const now = new Date().toISOString();
       setLastSyncAt(now);
       setSyncFolderDbTime(format(new Date(), 'M/d HH:mm', { locale: ja }));
@@ -207,7 +207,7 @@ export default function Settings() {
     setSyncStatus('pulling');
     setSyncMsg('');
     try {
-      const backupPath = await pullSync();
+      const backupPath = await pullSync(form.syncFolder);
       setSyncStatus('done');
       setSyncMsg(`取り込みました。バックアップ: ${backupPath}`);
       setTimeout(() => window.location.reload(), 1500);
