@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
-import { Plus, Circle, CheckCircle, Clock, Loader, Pencil, Trash2, AlertCircle, Archive, ArchiveRestore, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, Circle, CheckCircle, Clock, Loader, Trash2, AlertCircle, Archive, ArchiveRestore, ChevronDown, ChevronUp } from 'lucide-react';
 import { selectDb, executeDb } from '../lib/db';
 import { logTaskAction } from '../lib/taskLogs';
 import { TaskModal, type TaskFormData, type TaskStatus, type TaskPriority } from '../components/TaskModal';
@@ -275,9 +275,12 @@ export default function Tasks() {
 
                 {/* タスク情報 */}
                 <div className="flex-1 min-w-0">
-                  <span className={`block text-sm ${task.status === 'done' ? 'line-through text-gray-400' : 'text-gray-800'}`}>
+                  <button
+                    onClick={() => openEdit(task)}
+                    className={`block text-sm text-left w-full hover:underline underline-offset-2 ${task.status === 'done' ? 'line-through text-gray-400' : 'text-gray-800 hover:text-sebastian-navy'}`}
+                  >
                     {task.title}
-                  </span>
+                  </button>
                   <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                     {task.category && (
                       <span className="text-xs text-sebastian-lightgray">{task.category}</span>
@@ -331,13 +334,6 @@ export default function Tasks() {
                     </div>
                   ) : (
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button
-                        onClick={() => openEdit(task)}
-                        className="p-1.5 text-gray-400 hover:text-sebastian-navy hover:bg-gray-100 rounded-lg transition-colors"
-                        title="編集"
-                      >
-                        <Pencil size={14} />
-                      </button>
                       <button
                         onClick={() => { setArchivingId(task.id); setDeletingId(null); }}
                         className="p-1.5 text-gray-400 hover:text-sebastian-navy hover:bg-gray-100 rounded-lg transition-colors"
