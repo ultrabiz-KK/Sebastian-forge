@@ -7,6 +7,7 @@ import { getSetting, SETTING_KEYS } from '../lib/settings';
 import { ArrowRight, FileText, Pin } from 'lucide-react';
 import { MorningBriefingModal } from '../components/MorningBriefingModal';
 import { OrnateCard, CardHeading } from '../components/ClassicUI';
+import { TaskPeekModal } from '../components/TaskPeekModal';
 import { PRIORITY_COLOR, PRIORITY_LABEL } from '../lib/constants';
 
 interface TaskSummary {
@@ -33,6 +34,7 @@ export default function Dashboard() {
   const [categorySummary, setCategorySummary] = useState<CategorySummary[]>([]);
   const [reportExists, setReportExists] = useState(false);
   const [showBriefing, setShowBriefing] = useState(false);
+  const [peekTaskId, setPeekTaskId] = useState<number | null>(null);
 
   const today = format(new Date(), 'yyyy-MM-dd');
   const todayLabel = format(new Date(), 'M月d日（E）', { locale: ja });
@@ -107,6 +109,9 @@ export default function Dashboard() {
     <div className="space-y-6">
       {showBriefing && (
         <MorningBriefingModal onDismiss={() => setShowBriefing(false)} />
+      )}
+      {peekTaskId !== null && (
+        <TaskPeekModal taskId={peekTaskId} onClose={() => setPeekTaskId(null)} />
       )}
 
       {/* ─── ページヘッダー ─── */}
@@ -188,7 +193,11 @@ export default function Dashboard() {
           </CardHeading>
           <ul className="space-y-2">
             {pinnedTasks.map(t => (
-              <li key={t.id} className="flex items-center gap-2 text-sm text-sebastian-gray">
+              <li
+                key={t.id}
+                className="flex items-center gap-2 text-sm text-sebastian-gray hover:text-sebastian-navy cursor-pointer transition-colors"
+                onClick={() => setPeekTaskId(t.id)}
+              >
                 <span className={`text-xs px-1.5 py-0.5 rounded flex-shrink-0 ${PRIORITY_COLOR[t.priority]}`}>
                   {PRIORITY_LABEL[t.priority] || '—'}
                 </span>
@@ -224,7 +233,11 @@ export default function Dashboard() {
           ) : (
             <ul className="space-y-2">
               {todayTasks.map(t => (
-                <li key={t.id} className="flex items-center gap-2 text-sm text-sebastian-gray">
+                <li
+                  key={t.id}
+                  className="flex items-center gap-2 text-sm text-sebastian-gray hover:text-sebastian-navy cursor-pointer transition-colors"
+                  onClick={() => setPeekTaskId(t.id)}
+                >
                   <span className={`text-xs px-1.5 py-0.5 rounded ${PRIORITY_COLOR[t.priority]}`}>
                     {PRIORITY_LABEL[t.priority] || '—'}
                   </span>
@@ -250,7 +263,11 @@ export default function Dashboard() {
           ) : (
             <ul className="space-y-2">
               {highPriorityTasks.map(t => (
-                <li key={t.id} className="text-sm text-sebastian-gray flex items-center gap-2">
+                <li
+                  key={t.id}
+                  className="text-sm text-sebastian-gray flex items-center gap-2 hover:text-sebastian-navy cursor-pointer transition-colors"
+                  onClick={() => setPeekTaskId(t.id)}
+                >
                   <span className="w-1.5 h-1.5 rounded-full bg-sebastian-gold/60 flex-shrink-0" />
                   {t.title}
                   {t.due_date && (

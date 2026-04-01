@@ -7,6 +7,7 @@ import { ja } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight, RotateCcw } from 'lucide-react';
 import { selectDb } from '../lib/db';
 import { PRIORITY_COLOR } from '../lib/constants';
+import { TaskPeekModal } from '../components/TaskPeekModal';
 
 interface TaskItem {
   id: number;
@@ -29,6 +30,7 @@ export default function WeeklyCalendar() {
     startOfWeek(new Date(), { weekStartsOn: 1 })
   );
   const [dayData, setDayData] = useState<DayData[]>([]);
+  const [peekTaskId, setPeekTaskId] = useState<number | null>(null);
 
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
   const weekEnd = weekDays[6];
@@ -67,6 +69,9 @@ export default function WeeklyCalendar() {
 
   return (
     <div className="space-y-6">
+      {peekTaskId !== null && (
+        <TaskPeekModal taskId={peekTaskId} onClose={() => setPeekTaskId(null)} />
+      )}
       <div className="flex items-start justify-between mb-6">
         <header>
           <div className="flex items-center gap-3 mb-3">
@@ -148,8 +153,9 @@ export default function WeeklyCalendar() {
                 {day.tasks.slice(0, maxVisible).map(task => (
                   <div
                     key={task.id}
-                    className={`text-xs px-2 py-1 rounded border truncate font-serif ${PRIORITY_COLOR[task.priority]}`}
+                    className={`text-xs px-2 py-1 rounded border truncate font-serif cursor-pointer hover:opacity-75 transition-opacity ${PRIORITY_COLOR[task.priority]}`}
                     title={task.title}
+                    onClick={() => setPeekTaskId(task.id)}
                   >
                     {task.title}
                   </div>
