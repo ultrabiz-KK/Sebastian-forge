@@ -5,6 +5,7 @@ import {
   FileText, BookOpen, Settings, Sun, Moon, Sunset,
 } from 'lucide-react';
 import { type Theme, loadAndApplyTheme, saveTheme } from '../../lib/theme';
+import { toggleDemoMode, isDemoMode } from '../../lib/demoMode';
 
 
 const NAV_GROUPS = [
@@ -41,8 +42,13 @@ const SIDEBAR_DIVIDER = 'var(--sidebar-divider)';
 const GOLD          = 'var(--sidebar-gold)';
 const IVORY         = 'var(--sidebar-ivory)';
 
-export function Sidebar() {
+interface Props {
+  onDemoToggle?: () => void;
+}
+
+export function Sidebar({ onDemoToggle }: Props) {
   const [theme, setTheme] = useState<Theme>('light');
+  const [demo, setDemo] = useState(isDemoMode());
 
   useEffect(() => {
     loadAndApplyTheme().then(setTheme).catch(console.warn);
@@ -176,13 +182,19 @@ export function Sidebar() {
         </div>
       </div>
 
-      {/* ─── バージョン ─── */}
-      <div
-        className="px-3 pb-4 text-[11px] text-center font-serif"
-        style={{ color: 'rgba(212,201,168,0.2)' }}
+      {/* ─── バージョン / デモトグル ─── */}
+      <button
+        className="px-3 pb-4 text-[11px] text-center font-serif w-full transition-colors"
+        style={{ color: demo ? 'var(--sidebar-gold)' : 'rgba(212,201,168,0.2)' }}
+        title={demo ? 'デモモード ON — クリックで解除' : 'クリックでデモモード'}
+        onClick={() => {
+          const next = toggleDemoMode();
+          setDemo(next);
+          onDemoToggle?.();
+        }}
       >
-        AI Work Supporter v1.0.0
-      </div>
+        {demo ? '◆ DEMO MODE ◆' : 'AI Work Supporter v1.0.0'}
+      </button>
     </aside>
   );
 }
