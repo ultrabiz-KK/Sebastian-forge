@@ -181,7 +181,7 @@ export function Sidebar() {
         className="px-3 pb-4 text-[11px] text-center font-serif"
         style={{ color: 'rgba(212,201,168,0.2)' }}
       >
-        AI Work Supporter v0.1.0
+        AI Work Supporter v1.0.0
       </div>
     </aside>
   );
