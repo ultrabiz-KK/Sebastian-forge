@@ -682,7 +682,7 @@ export default function Settings() {
       </div>
 
       <div className="text-xs text-sebastian-lightgray/50 border-t border-sebastian-border/30 pt-4 font-serif">
-        Sebastian v1.0.0 — AI Work Supporter
+        Sebastian v1.1.1 — AI Work Supporter
       </div>
     </div>
   );
