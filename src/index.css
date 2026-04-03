@@ -178,3 +178,75 @@ html.theme-sepia {
   --color-gray-800:  #3d2818;
   --color-gray-900:  #2a1808;
 }
+
+/* ─── 日報/週報 生成中アニメーション ───────────────────────── */
+
+@keyframes quillRock {
+  0%   { transform: rotate(13deg); }
+  50%  { transform: rotate(-9deg); }
+  100% { transform: rotate(13deg); }
+}
+
+@keyframes inkDrop {
+  0%, 100% { opacity: 0.85; transform: translate(-50%, 0) scale(1);   }
+  50%       { opacity: 0.15; transform: translate(-50%, 0) scale(0.3); }
+}
+
+@keyframes inkDropNib {
+  0%, 100% { opacity: 0.9; transform: scale(1);   }
+  50%       { opacity: 0.1; transform: scale(0.3); }
+}
+
+@keyframes writeLine {
+  0%   { width: 0%;    opacity: 0;   }
+  12%  { opacity: 1;                 }
+  75%  { opacity: 0.7;               }
+  100% { width: 100%;  opacity: 0.1; }
+}
+
+@keyframes fadeUpIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0);   }
+}
+
+.quill-rock {
+  animation: quillRock 2s cubic-bezier(0.37, 0, 0.63, 1) infinite;
+  transform-origin: 47% 99%; /* ペン先（ニブ）位置 */
+}
+
+.ink-drop-nib {
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgba(160, 120, 30, 0.85);
+  animation: inkDropNib 2s ease-in-out infinite;
+}
+
+.ink-drop {
+  position: absolute;
+  bottom: 1px;
+  left: 50%;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgba(180, 140, 50, 0.85);
+  animation: inkDrop 2s ease-in-out infinite;
+}
+
+.write-line {
+  height: 1.5px;
+  width: 0;
+  border-radius: 999px;
+  background: rgba(201, 164, 86, 0.45);
+  animation: writeLine 2.4s ease-out infinite;
+}
+.write-line:nth-child(2) { animation-delay: 0.55s; }
+.write-line:nth-child(3) {
+  animation-delay: 1.1s;
+  max-width: 62%;
+}
+
+.anim-fade-up {
+  animation: fadeUpIn 0.5s ease-out both;
+}

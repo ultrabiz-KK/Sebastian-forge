@@ -7,6 +7,7 @@ import { selectDb, executeDb } from '../lib/db';
 import { OrnateCard, CardHeading } from '../components/ClassicUI';
 import { generateWeeklyReport, type TaskLogEntry, type TaskEntry } from '../lib/ai';
 import { getSetting, SETTING_KEYS } from '../lib/settings';
+import { GeneratingAnimation } from '../components/GeneratingAnimation';
 
 type PageState = 'idle' | 'generating' | 'draft' | 'saving' | 'saved';
 
@@ -244,11 +245,8 @@ export default function WeeklyReport() {
 
       {/* 生成中 */}
       {pageState === 'generating' && (
-        <OrnateCard className="p-10 text-center">
-          <div className="flex items-center justify-center gap-2 text-sebastian-gray font-serif">
-            <Sparkles size={18} className="animate-pulse" style={{ color: '#c9a456' }} />
-            <span className="text-sm">セバスチャンが週報案を整えています...</span>
-          </div>
+        <OrnateCard>
+          <GeneratingAnimation reportType="weekly" />
         </OrnateCard>
       )}
 

@@ -12,14 +12,14 @@ const lastWeekStart = format(startOfWeek(subDays(new Date(), 7), { weekStartsOn:
 const lastWeekEnd   = format(addDays(subDays(new Date(), 7), 6), 'yyyy-MM-dd');
 
 export const DEMO_TASKS = [
-  { id: 1, title: '月次レポート作成',           status: 'in_progress', priority: 'high',   due_date: today,    category: '管理業務', description: '4月分の月次レポートをまとめる。前月比の分析・コメントを含める。提出先: 管理部', pinned: 0, archived: 0 },
-  { id: 2, title: 'サーバー移行計画の策定',      status: 'todo',        priority: 'high',   due_date: in3days,  category: 'インフラ', description: '老朽化した社内サーバーの移行先選定と移行スケジュールを策定する。ベンダーA社と要調整。', pinned: 1, archived: 0 },
-  { id: 3, title: 'セキュリティパッチ適用確認',  status: 'todo',        priority: 'high',   due_date: tomorrow, category: 'インフラ', description: '先週リリースされたパッチの適用状況を全12台確認。残り3台未適用。', pinned: 1, archived: 0 },
-  { id: 4, title: '新人研修資料の更新',          status: 'todo',        priority: 'medium', due_date: in7days,  category: '人事・教育', description: '2026年度版に内容を更新する。PC貸出フロー・社内システム説明を最新化。', pinned: 0, archived: 0 },
-  { id: 5, title: 'IT資産台帳の整備',            status: 'todo',        priority: 'medium', due_date: in14days, category: 'インフラ', description: '棚卸し結果を台帳に反映する。廃棄予定機器のリスト化も行う。', pinned: 0, archived: 0 },
-  { id: 6, title: 'Webサイト軽微修正',           status: 'in_progress', priority: 'low',    due_date: null,     category: 'Web', description: 'お知らせページの古い記事を削除し、採用情報を更新する。', pinned: 0, archived: 0 },
-  { id: 7, title: 'ベンダー打ち合わせ議事録作成', status: 'done',       priority: 'medium', due_date: yesterday, category: '管理業務', description: null, pinned: 0, archived: 0 },
-  { id: 8, title: '備品発注（プリンター用紙）',   status: 'done',       priority: 'low',    due_date: twoDaysAgo, category: '庶務', description: null, pinned: 0, archived: 0 },
+  { id: 1, title: '月次レポート作成',           status: 'in_progress', priority: 'high',   due_date: today,      category: '管理業務',  description: '4月分の月次レポートをまとめる。前月比の分析・コメントを含める。提出先: 管理部',                   pinned: 0, archived: 0, created_at: `${twoDaysAgo} 09:00:00`, updated_at: `${today} 10:30:00` },
+  { id: 2, title: 'サーバー移行計画の策定',      status: 'todo',        priority: 'high',   due_date: in3days,    category: 'インフラ',  description: '老朽化した社内サーバーの移行先選定と移行スケジュールを策定する。ベンダーA社と要調整。',            pinned: 1, archived: 0, created_at: `${twoDaysAgo} 10:00:00`, updated_at: `${twoDaysAgo} 10:00:00` },
+  { id: 3, title: 'セキュリティパッチ適用確認',  status: 'todo',        priority: 'high',   due_date: tomorrow,   category: 'インフラ',  description: '先週リリースされたパッチの適用状況を全12台確認。残り3台未適用。',                                   pinned: 1, archived: 0, created_at: `${yesterday} 08:30:00`,  updated_at: `${yesterday} 17:00:00` },
+  { id: 4, title: '新人研修資料の更新',          status: 'todo',        priority: 'medium', due_date: in7days,    category: '人事・教育', description: '2026年度版に内容を更新する。PC貸出フロー・社内システム説明を最新化。',                              pinned: 0, archived: 0, created_at: `${yesterday} 14:00:00`,  updated_at: `${yesterday} 14:00:00` },
+  { id: 5, title: 'IT資産台帳の整備',            status: 'todo',        priority: 'medium', due_date: in14days,   category: 'インフラ',  description: '棚卸し結果を台帳に反映する。廃棄予定機器のリスト化も行う。',                                        pinned: 0, archived: 0, created_at: `${twoDaysAgo} 11:00:00`, updated_at: `${twoDaysAgo} 11:00:00` },
+  { id: 6, title: 'Webサイト軽微修正',           status: 'in_progress', priority: 'low',    due_date: null,       category: 'Web',       description: 'お知らせページの古い記事を削除し、採用情報を更新する。',                                            pinned: 0, archived: 0, created_at: `${twoDaysAgo} 13:00:00`, updated_at: `${today} 09:00:00` },
+  { id: 7, title: 'ベンダー打ち合わせ議事録作成', status: 'done',       priority: 'medium', due_date: yesterday,  category: '管理業務',  description: null,                                                                                               pinned: 0, archived: 0, created_at: `${yesterday} 09:00:00`,  updated_at: `${yesterday} 16:00:00` },
+  { id: 8, title: '備品発注（プリンター用紙）',   status: 'done',       priority: 'low',    due_date: twoDaysAgo, category: '庶務',      description: null,                                                                                               pinned: 0, archived: 0, created_at: `${twoDaysAgo} 15:00:00`, updated_at: `${twoDaysAgo} 15:30:00` },
 ];
 
 export const DEMO_CATEGORY_SUMMARY = [

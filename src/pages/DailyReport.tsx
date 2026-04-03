@@ -7,6 +7,7 @@ import { PageHeader, OrnateCard, CardHeading } from '../components/ClassicUI';
 import { generateDailyReport, extractTaskCandidates, type TaskLogEntry, type TaskEntry, type TaskCandidate } from '../lib/ai';
 import { getSetting, SETTING_KEYS } from '../lib/settings';
 import { TaskCandidatesPanel } from '../components/TaskCandidatesPanel';
+import { GeneratingAnimation } from '../components/GeneratingAnimation';
 
 type PageState = 'idle' | 'generating' | 'draft' | 'saving' | 'saved';
 type CandidateState = 'idle' | 'extracting' | 'ready' | 'done';
@@ -224,11 +225,8 @@ export default function DailyReport() {
 
       {/* 生成中 */}
       {pageState === 'generating' && (
-        <OrnateCard className="p-10 text-center">
-          <div className="flex items-center justify-center gap-2 text-sebastian-gray font-serif">
-            <Sparkles size={18} className="animate-pulse" style={{ color: '#c9a456' }} />
-            <span className="text-sm">セバスチャンが日報案を整えています...</span>
-          </div>
+        <OrnateCard>
+          <GeneratingAnimation reportType="daily" />
         </OrnateCard>
       )}
 

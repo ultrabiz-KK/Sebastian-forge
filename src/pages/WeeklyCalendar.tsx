@@ -4,7 +4,7 @@ import {
   addWeeks, subWeeks, isSameWeek, getWeek,
 } from 'date-fns';
 import { ja } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, RotateCcw, BookOpen, BarChart2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, RotateCcw, BookOpen, BarChart2, Sparkles } from 'lucide-react';
 import { selectDb } from '../lib/db';
 import { PRIORITY_COLOR } from '../lib/constants';
 import { TaskPeekModal } from '../components/TaskPeekModal';
@@ -262,12 +262,19 @@ export default function WeeklyCalendar() {
     loadComment(stats, weekStart, weekEnd);
   };
 
-  const loadComment = async (stats: WeekStats, start: Date, end: Date) => {
+  const regenerateComment = async () => {
+    const cacheKey = `weekly_cal_comment_${format(weekStart, 'yyyy-MM-dd')}`;
+    await setSetting(cacheKey, '');
+    setWeekComment(null);
+    loadComment(weekStats, weekStart, weekEnd, true);
+  };
+
+  const loadComment = async (stats: WeekStats, start: Date, end: Date, forceRegenerate = false) => {
     const cacheKey = `weekly_cal_comment_${format(start, 'yyyy-MM-dd')}`;
 
     // キャッシュ確認
     const cached = await getSetting(cacheKey);
-    if (cached) {
+    if (cached && !forceRegenerate) {
       setWeekComment(cached);
       return;
     }
@@ -519,6 +526,15 @@ export default function WeeklyCalendar() {
                   : weekComment ?? <span className="text-sebastian-lightgray/60 italic">－</span>
                 }
               </p>
+              <button
+                onClick={regenerateComment}
+                disabled={commentLoading}
+                className="flex items-center gap-1 text-xs text-sebastian-lightgray hover:text-sebastian-gold transition-colors disabled:opacity-40 font-serif flex-shrink-0"
+                title="週評を再生成"
+              >
+                <Sparkles size={12} />
+                再生成
+              </button>
             </div>
           </div>
         )}
