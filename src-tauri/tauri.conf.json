@@ -24,7 +24,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self'; connect-src 'self' https://generativelanguage.googleapis.com http://localhost:11434"
+      "csp": "default-src 'self'; script-src 'self'; connect-src 'self' https://generativelanguage.googleapis.com http://localhost:11434 https://api.anthropic.com https://api.openai.com https://api.groq.com https://openrouter.ai https://nano-gpt.com http://localhost:1234"
     }
   },
   "bundle": {

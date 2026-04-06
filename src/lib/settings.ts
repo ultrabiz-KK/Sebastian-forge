@@ -5,11 +5,39 @@ export const SETTING_KEYS = {
   WEEKLY_REPORT_PATH: 'weekly_report_path',
   GLOBAL_SHORTCUT: 'global_shortcut',
   AUTOSTART_ENABLED: 'autostart_enabled',
-  AI_PROVIDER: 'ai_provider',       // 'ollama' | 'gemini' | 'disabled'
+  AI_PROVIDER: 'ai_provider',       // 'ollama' | 'gemini' | 'claude' | 'openai' | 'groq' | ... | 'disabled'
   OLLAMA_ENDPOINT: 'ollama_endpoint',
   OLLAMA_MODEL: 'ollama_model',
   GEMINI_API_KEY: 'gemini_api_key',
   GEMINI_MODEL: 'gemini_model',
+  // Claude (Anthropic)
+  CLAUDE_API_KEY: 'claude_api_key',
+  CLAUDE_MODEL: 'claude_model',
+  // OpenAI
+  OPENAI_API_KEY: 'openai_api_key',
+  OPENAI_MODEL: 'openai_model',
+  // Groq
+  GROQ_API_KEY: 'groq_api_key',
+  GROQ_MODEL: 'groq_model',
+  // OpenRouter
+  OPENROUTER_API_KEY: 'openrouter_api_key',
+  OPENROUTER_MODEL: 'openrouter_model',
+  // nano-gpt
+  NANOGPT_API_KEY: 'nanogpt_api_key',
+  NANOGPT_MODEL: 'nanogpt_model',
+  // LM Studio（エンドポイントはユーザー入力）
+  LMSTUDIO_ENDPOINT: 'lmstudio_endpoint',
+  LMSTUDIO_MODEL: 'lmstudio_model',
+  // カスタムプロバイダー（JSON配列）
+  CUSTOM_PROVIDERS: 'custom_providers',
+  // 機能別プロバイダー（空文字はグローバル設定にフォールバック）
+  FEATURE_PROVIDER_DAILY_REPORT: 'feature_provider_daily_report',
+  FEATURE_PROVIDER_WEEKLY_REPORT: 'feature_provider_weekly_report',
+  FEATURE_PROVIDER_BRIEFING: 'feature_provider_briefing',
+  FEATURE_PROVIDER_CALENDAR_COMMENT: 'feature_provider_calendar_comment',
+  FEATURE_PROVIDER_TASK_EXTRACT: 'feature_provider_task_extract',
+  // モデル一覧キャッシュ（TTL: 1時間）
+  MODELS_CACHE: 'models_cache',
   REMINDER_ENABLED: 'reminder_enabled',
   REMINDER_TIME: 'reminder_time',
   REMINDER_WEEKDAYS_ONLY: 'reminder_weekdays_only',
