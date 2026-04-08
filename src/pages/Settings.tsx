@@ -55,6 +55,11 @@ interface SettingsForm {
   featureProviderBriefing: string;
   featureProviderCalendarComment: string;
   featureProviderTaskExtract: string;
+  featureModelDailyReport: string;
+  featureModelWeeklyReport: string;
+  featureModelBriefing: string;
+  featureModelCalendarComment: string;
+  featureModelTaskExtract: string;
   // その他
   reminderEnabled: boolean;
   reminderTime: string;
@@ -88,12 +93,12 @@ const ALL_PROVIDER_OPTIONS = [
 ] as const;
 
 // 機能別プロバイダー設定の定義
-const FEATURE_SETTINGS: { key: FeatureKey; label: string; formKey: keyof SettingsForm }[] = [
-  { key: 'daily_report',    label: '日報生成',         formKey: 'featureProviderDailyReport' },
-  { key: 'weekly_report',   label: '週報生成',         formKey: 'featureProviderWeeklyReport' },
-  { key: 'briefing',        label: 'ブリーフィング',   formKey: 'featureProviderBriefing' },
-  { key: 'calendar_comment', label: 'カレンダーコメント', formKey: 'featureProviderCalendarComment' },
-  { key: 'task_extract',    label: 'タスク抽出',       formKey: 'featureProviderTaskExtract' },
+const FEATURE_SETTINGS: { key: FeatureKey; label: string; formKey: keyof SettingsForm; modelKey: keyof SettingsForm }[] = [
+  { key: 'daily_report',    label: '日報生成',         formKey: 'featureProviderDailyReport',    modelKey: 'featureModelDailyReport' },
+  { key: 'weekly_report',   label: '週報生成',         formKey: 'featureProviderWeeklyReport',   modelKey: 'featureModelWeeklyReport' },
+  { key: 'briefing',       label: 'ブリーフィング',   formKey: 'featureProviderBriefing',       modelKey: 'featureModelBriefing' },
+  { key: 'calendar_comment', label: 'カレンダーコメント', formKey: 'featureProviderCalendarComment', modelKey: 'featureModelCalendarComment' },
+  { key: 'task_extract',   label: 'タスク抽出',       formKey: 'featureProviderTaskExtract',    modelKey: 'featureModelTaskExtract' },
 ];
 
 // ─── コンポーネント ──────────────────────────────────────────────
@@ -126,6 +131,11 @@ export default function Settings() {
     featureProviderBriefing: '',
     featureProviderCalendarComment: '',
     featureProviderTaskExtract: '',
+    featureModelDailyReport: '',
+    featureModelWeeklyReport: '',
+    featureModelBriefing: '',
+    featureModelCalendarComment: '',
+    featureModelTaskExtract: '',
     reminderEnabled: false,
     reminderTime: '18:00',
     reminderWeekdaysOnly: true,
@@ -177,6 +187,7 @@ export default function Settings() {
         lmstudioEndpoint, lmstudioModel,
         customRaw,
         fpDaily, fpWeekly, fpBriefing, fpCalendar, fpTask,
+        fmDaily, fmWeekly, fmBriefing, fmCalendar, fmTask,
         reminderEnabled, reminderTime, reminderWeekdaysOnly,
         syncFolderSetting, lastSyncAtSetting,
       ] = await Promise.all([
@@ -208,6 +219,11 @@ export default function Settings() {
         getSetting(SETTING_KEYS.FEATURE_PROVIDER_BRIEFING),
         getSetting(SETTING_KEYS.FEATURE_PROVIDER_CALENDAR_COMMENT),
         getSetting(SETTING_KEYS.FEATURE_PROVIDER_TASK_EXTRACT),
+        getSetting(SETTING_KEYS.FEATURE_MODEL_DAILY_REPORT),
+        getSetting(SETTING_KEYS.FEATURE_MODEL_WEEKLY_REPORT),
+        getSetting(SETTING_KEYS.FEATURE_MODEL_BRIEFING),
+        getSetting(SETTING_KEYS.FEATURE_MODEL_CALENDAR_COMMENT),
+        getSetting(SETTING_KEYS.FEATURE_MODEL_TASK_EXTRACT),
         getSetting(SETTING_KEYS.REMINDER_ENABLED),
         getSetting(SETTING_KEYS.REMINDER_TIME),
         getSetting(SETTING_KEYS.REMINDER_WEEKDAYS_ONLY),
@@ -254,6 +270,11 @@ export default function Settings() {
         featureProviderBriefing: fpBriefing ?? '',
         featureProviderCalendarComment: fpCalendar ?? '',
         featureProviderTaskExtract: fpTask ?? '',
+        featureModelDailyReport: fmDaily ?? '',
+        featureModelWeeklyReport: fmWeekly ?? '',
+        featureModelBriefing: fmBriefing ?? '',
+        featureModelCalendarComment: fmCalendar ?? '',
+        featureModelTaskExtract: fmTask ?? '',
         reminderEnabled: reminderEnabled === 'true',
         reminderTime: reminderTime ?? '18:00',
         reminderWeekdaysOnly: reminderWeekdaysOnly !== 'false',
@@ -417,6 +438,11 @@ export default function Settings() {
         setSetting(SETTING_KEYS.FEATURE_PROVIDER_BRIEFING, form.featureProviderBriefing),
         setSetting(SETTING_KEYS.FEATURE_PROVIDER_CALENDAR_COMMENT, form.featureProviderCalendarComment),
         setSetting(SETTING_KEYS.FEATURE_PROVIDER_TASK_EXTRACT, form.featureProviderTaskExtract),
+        setSetting(SETTING_KEYS.FEATURE_MODEL_DAILY_REPORT, form.featureModelDailyReport),
+        setSetting(SETTING_KEYS.FEATURE_MODEL_WEEKLY_REPORT, form.featureModelWeeklyReport),
+        setSetting(SETTING_KEYS.FEATURE_MODEL_BRIEFING, form.featureModelBriefing),
+        setSetting(SETTING_KEYS.FEATURE_MODEL_CALENDAR_COMMENT, form.featureModelCalendarComment),
+        setSetting(SETTING_KEYS.FEATURE_MODEL_TASK_EXTRACT, form.featureModelTaskExtract),
         setSetting(SETTING_KEYS.REMINDER_ENABLED, String(form.reminderEnabled)),
         setSetting(SETTING_KEYS.REMINDER_TIME, form.reminderTime),
         setSetting(SETTING_KEYS.REMINDER_WEEKDAYS_ONLY, String(form.reminderWeekdaysOnly)),
@@ -798,18 +824,33 @@ export default function Settings() {
                   機能ごとに別プロバイダーを使用できます。未設定の場合はグローバル設定に従います。
                 </p>
                 {FEATURE_SETTINGS.map(feat => (
-                  <div key={feat.key} className="flex items-center gap-3">
-                    <label className="text-xs text-sebastian-gray w-36 shrink-0">{feat.label}</label>
-                    <select
-                      className="flex-1 bg-sebastian-parchment/50 border border-sebastian-border rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-sebastian-gold/50 transition-colors"
-                      value={(form[feat.formKey] as string)}
-                      onChange={e => setF(feat.formKey, e.target.value)}
-                    >
-                      <option value="">グローバル設定に従う</option>
-                      {allProviderOptions.filter(o => o.id !== 'disabled').map(opt => (
-                        <option key={opt.id} value={opt.id}>{opt.name}</option>
-                      ))}
-                    </select>
+                  <div key={feat.key} className="space-y-2">
+                    <div className="flex items-center gap-3">
+                      <label className="text-xs text-sebastian-gray w-36 shrink-0">{feat.label}</label>
+                      <select
+                        className="flex-1 bg-sebastian-parchment/50 border border-sebastian-border rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-sebastian-gold/50 transition-colors"
+                        value={(form[feat.formKey] as string)}
+                        onChange={e => setF(feat.formKey, e.target.value)}
+                      >
+                        <option value="">グローバル設定に従う</option>
+                        {allProviderOptions.filter(o => o.id !== 'disabled').map(opt => (
+                          <option key={opt.id} value={opt.id}>{opt.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    {(form[feat.formKey] as string) && (
+                      <div className="ml-36 flex items-center gap-2">
+                        <label className="text-[11px] text-sebastian-lightgray">モデル</label>
+                        <div className="flex-1">
+                          <ModelSelector
+                            providerId={form[feat.formKey] as string}
+                            value={form[feat.modelKey] as string}
+                            onChange={v => setF(feat.modelKey, v)}
+                            placeholder="デフォルトを使用"
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

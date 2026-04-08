@@ -76,6 +76,11 @@
 - **プリセットプロバイダー**: `GeminiProvider` / `OllamaProvider` / `ClaudeProvider` / `OpenAIProvider` / `OpenAICompatibleProvider`（Groq・OpenRouter・nano-gpt・LM Studio 共通）
 - **`getProvider(id)`** でプリセット + カスタムプロバイダーを解決するファクトリ。
 - **`getProviderForFeature(feature?)`** で機能別設定 → グローバル設定にフォールバック。
+- **機能別プロバイダー・モデル設定**: 各機能（日報生成、週報生成、ブリーフィング、カレンダーコメント、タスク抽出）ごとにプロバイダーとモデルを個別指定可能。
+  - 設定画面の「機能別プロバイダー設定」でプロバイダー選択後にモデル選択ドロップダウンが表示
+  - 機能別モデル未設定時はプロバイダーのデフォルトモデルを使用
+  - 各プロバイダークラス（Gemini, Ollama, Claude, OpenAI, OpenAICompatible）に `_modelOverride` プロパティを追加し、`getConfig()` で優先的に使用
+  - カスタムプロバイダーも `buildCustomProvider(def, featureModelOverride)` でモデルオーバーライドに対応
 - JSON 呼び出しは各プロバイダーの `callJson()` で吸収（Gemini: `responseMimeType`、Ollama: `format: 'json'`、OpenAI: `response_format`、Claude: system prompt 指示）。
 - モデル一覧は TTL 1時間のキャッシュ（`models_cache` キー）で管理。
 - **モデルフィルタリング**: テキスト生成モデルのみを表示。Gemini は `supportedGenerationMethods` に `generateContent` が含まれるモデル、OpenAI/互換は `dall-e-*`/`whisper-*`/`tts-*`/`text-embedding-*`/`text-moderation-*` を除外。フィルタリングで空になる場合はフォールバックして全モデルを返す。
