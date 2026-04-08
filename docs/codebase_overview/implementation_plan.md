@@ -130,6 +130,26 @@
   - 成功/エラーメッセージはモーダル内に表示
   - Sebastian デザインテーマの OrnateCard スタイルを踏襲
 - **Settings.tsx 連携**: セキュリティセクションに「パスワードを設定・変更」ボタンを配置
+
+### Settings.tsx セキュリティセクション（Phase 2 T2-8 実装済）
+
+`src/pages/Settings.tsx` のセキュリティセクションを拡張。
+
+- **表示内容**:
+  - マスターパスワード有効/無効トグル（トグルスイッチ）
+  - セッション期間選択ドロップダウン（`APP_RESTART` / `1h` / `6h` / `1d` / `2w` / `1m` / `3m` / `FOREVER`）
+  - 現在のセッション状態表示（「セッション有効（あと○時間）」/ 「セッション期限切れ」）
+  - 「パスワードを変更」ボタン
+- **無効化時の確認ダイアログ**:
+  - トグルでオフにする際、確認ダイアログを表示
+  - 「無効化する」「キャンセル」ボタン
+  - 警告メッセージで暗号化設定が復号できなくなることを通知
+- **状態管理**:
+  - `masterPasswordEnabled`: `MASTER_PASSWORD_HASH` 設定の有無から判定
+  - `sessionDuration`: `SETTING_KEYS.SESSION_DURATION` から読み込み
+  - `sessionState`: `getState()` から現在のセッション状態を取得
+- **保存処理**: セッション期間は他の設定と同様に `handleSave` で一括保存
+
 ### ロック解除モーダル（Phase 2 T2-5 実装済）
 
 `src/components/UnlockModal.tsx` がアプリ起動時のパスワード入力UIを提供。

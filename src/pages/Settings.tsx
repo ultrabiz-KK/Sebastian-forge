@@ -8,6 +8,7 @@ import {
   Lock, Shield,
 } from 'lucide-react';
 import { getSetting, setSetting, setEncryptedSetting, setEncryptedCustomProviders, SETTING_KEYS } from '../lib/settings';
+import { isUnlocked, getState, type SessionDuration } from '../lib/session';
 import type { CustomProviderDef } from '../lib/settings';
 import { PageHeader, OrnateCard, CardHeading } from '../components/ClassicUI';
 import { ModelSelector } from '../components/ModelSelector';
@@ -68,6 +69,9 @@ interface SettingsForm {
   reminderTime: string;
   reminderWeekdaysOnly: boolean;
   syncFolder: string;
+  // マスターパスワード
+  masterPasswordEnabled: boolean;
+  sessionDuration: SessionDuration;
 }
 
 // カスタムプロバイダー編集用フォーム
@@ -88,6 +92,17 @@ const EMPTY_CUSTOM_FORM: CustomProviderForm = {
   apiKey: '',
   modelOverride: '',
 };
+
+const SESSION_DURATION_OPTIONS: { value: SessionDuration; label: string }[] = [
+  { value: 'APP_RESTART', label: 'アプリ再起動まで' },
+  { value: '1h', label: '1時間' },
+  { value: '6h', label: '6時間' },
+  { value: '1d', label: '1日' },
+  { value: '2w', label: '2週間' },
+  { value: '1m', label: '1ヶ月' },
+  { value: '3m', label: '3ヶ月' },
+  { value: 'FOREVER', label: '無期限（手動ロックまで）' },
+];
 
 // 全プロバイダー選択肢（カスタムを含む場合は動的に追加）
 const ALL_PROVIDER_OPTIONS = [
@@ -143,6 +158,8 @@ export default function Settings() {
     reminderTime: '18:00',
     reminderWeekdaysOnly: true,
     syncFolder: '',
+    masterPasswordEnabled: false,
+    sessionDuration: 'APP_RESTART',
   });
 
   // カスタムプロバイダー管理
@@ -173,6 +190,8 @@ export default function Settings() {
   const [shortcutError, setShortcutError] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [sessionState, setSessionState] = useState<{ unlocked: boolean; expiresAt: Date | null }>({ unlocked: false, expiresAt: null });
+  const [confirmDisablePassword, setConfirmDisablePassword] = useState(false);
 
   // ─── 初期ロード ───────────────────────────────────────────────
 
@@ -194,6 +213,7 @@ export default function Settings() {
         fmDaily, fmWeekly, fmBriefing, fmCalendar, fmTask,
         reminderEnabled, reminderTime, reminderWeekdaysOnly,
         syncFolderSetting, lastSyncAtSetting,
+        masterPasswordHash, sessionDurationSetting,
       ] = await Promise.all([
         getSetting(SETTING_KEYS.DAILY_REPORT_PATH),
         getSetting(SETTING_KEYS.WEEKLY_REPORT_PATH),
@@ -233,6 +253,8 @@ export default function Settings() {
         getSetting(SETTING_KEYS.REMINDER_WEEKDAYS_ONLY),
         getSetting(SETTING_KEYS.SYNC_FOLDER),
         getSetting(SETTING_KEYS.LAST_SYNC_AT),
+        getSetting(SETTING_KEYS.MASTER_PASSWORD_HASH),
+        getSetting(SETTING_KEYS.SESSION_DURATION),
       ]);
 
       const syncFolderVal = syncFolderSetting ?? '';
@@ -283,7 +305,11 @@ export default function Settings() {
         reminderTime: reminderTime ?? '18:00',
         reminderWeekdaysOnly: reminderWeekdaysOnly !== 'false',
         syncFolder: syncFolderVal,
+        masterPasswordEnabled: !!masterPasswordHash,
+        sessionDuration: (sessionDurationSetting as SessionDuration) ?? 'APP_RESTART',
       });
+      
+      setSessionState(getState());
     }
     load();
   }, []);
@@ -451,6 +477,7 @@ export default function Settings() {
         setSetting(SETTING_KEYS.REMINDER_TIME, form.reminderTime),
         setSetting(SETTING_KEYS.REMINDER_WEEKDAYS_ONLY, String(form.reminderWeekdaysOnly)),
         setSetting(SETTING_KEYS.SYNC_FOLDER, form.syncFolder),
+        setSetting(SETTING_KEYS.SESSION_DURATION, form.sessionDuration),
       ]);
 
       try {
@@ -1239,29 +1266,128 @@ export default function Settings() {
       {/* ── セキュリティ ───────────────────────────────────────────── */}
       <OrnateCard className="p-6">
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <CardHeading>セキュリティ</CardHeading>
-              <p className="text-xs text-sebastian-lightgray mt-0.5">マスターパスワードで機密情報を暗号化</p>
+          <CardHeading>セキュリティ</CardHeading>
+          <p className="text-xs text-sebastian-lightgray -mt-2">
+            マスターパスワードでAPIキーなどの機密情報を暗号化保存します。
+          </p>
+
+          {/* マスターパスワード有効/無効トグル */}
+          <div className="bg-sebastian-parchment/50 border border-sebastian-border/40 rounded-lg px-4 py-3 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Shield size={16} className="text-sebastian-gold" />
+                <span className="text-sm font-medium text-sebastian-navy">マスターパスワード</span>
+                {form.masterPasswordEnabled && (
+                  <span className="text-[10px] px-1.5 py-0.5 bg-green-100 text-green-700 rounded border border-green-200">有効</span>
+                )}
+              </div>
+              <button
+                onClick={() => {
+                  if (form.masterPasswordEnabled) {
+                    setConfirmDisablePassword(true);
+                  } else {
+                    setShowPasswordModal(true);
+                  }
+                }}
+                className={`relative w-11 h-6 rounded-full transition-colors ${form.masterPasswordEnabled ? 'bg-sebastian-navy' : 'bg-gray-200'}`}
+              >
+                <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${form.masterPasswordEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
+              </button>
             </div>
+            
+            {form.masterPasswordEnabled ? (
+              <div className="space-y-3 pt-1">
+                {/* セッション期間選択 */}
+                <div className="space-y-1.5">
+                  <label className="block text-sm text-sebastian-gray">セッション期間</label>
+                  <select
+                    className="w-full bg-sebastian-parchment/50 border border-sebastian-border rounded-lg px-3 py-2 text-sm outline-none focus:border-sebastian-gold/50 transition-colors"
+                    value={form.sessionDuration}
+                    onChange={e => setF('sessionDuration', e.target.value as SessionDuration)}
+                  >
+                    {SESSION_DURATION_OPTIONS.map(opt => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+                </div>
+                
+                {/* 現在のセッション状態 */}
+                <div className="bg-white/50 border border-sebastian-border/30 rounded-lg px-3 py-2.5">
+                  <div className="flex items-center gap-2 text-sm">
+                    {sessionState.unlocked ? (
+                      <>
+                        <CheckCircle size={14} className="text-green-600" />
+                        <span className="text-green-700 font-medium">セッション有効</span>
+                      </>
+                    ) : (
+                      <>
+                        <AlertCircle size={14} className="text-amber-600" />
+                        <span className="text-amber-700 font-medium">セッション期限切れ</span>
+                      </>
+                    )}
+                  </div>
+                  {sessionState.unlocked && sessionState.expiresAt && (
+                    <p className="text-xs text-sebastian-lightgray mt-1 ml-5">
+                      あと {format(sessionState.expiresAt, 'H時間m分', { locale: ja })} まで有効
+                    </p>
+                  )}
+                  {sessionState.unlocked && !sessionState.expiresAt && (
+                    <p className="text-xs text-sebastian-lightgray mt-1 ml-5">
+                      手動ロックまたはアプリ終了まで有効
+                    </p>
+                  )}
+                </div>
+                
+                <button
+                  onClick={() => setShowPasswordModal(true)}
+                  className="flex items-center gap-2 px-4 py-2 bg-sebastian-navy text-white rounded-lg hover:bg-sebastian-dark transition-colors text-sm font-medium"
+                >
+                  <Lock size={14} />
+                  パスワードを変更
+                </button>
+              </div>
+            ) : (
+              <p className="text-xs text-sebastian-lightgray">
+                有効化するには「パスワードを設定」をクリックしてください。
+              </p>
+            )}
           </div>
-          <div className="bg-sebastian-parchment/50 border border-sebastian-border/40 rounded-lg px-4 py-3 space-y-2">
-            <div className="flex items-center gap-2">
-              <Shield size={16} className="text-sebastian-gold" />
-              <span className="text-sm font-medium text-sebastian-navy font-serif">マスターパスワード</span>
+          
+          {/* 無効化確認ダイアログ */}
+          {confirmDisablePassword && (
+            <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 space-y-3">
+              <div className="flex items-start gap-2">
+                <AlertCircle size={16} className="text-red-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-red-800">マスターパスワードを無効化しますか？</p>
+                  <p className="text-xs text-red-700 mt-1">
+                    無効化すると、暗号化されたAPIキーなどは復号できなくなります。
+                    引き続きアプリは使用できますが、機密設定を再入力する必要があります。
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={async () => {
+                    if (window.confirm('本当にマスターパスワードを削除しますか？この操作は取り消せません。')) {
+                      await setSetting(SETTING_KEYS.MASTER_PASSWORD_HASH, '');
+                      setForm(f => ({ ...f, masterPasswordEnabled: false }));
+                      setConfirmDisablePassword(false);
+                    }
+                  }}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium"
+                >
+                  無効化する
+                </button>
+                <button
+                  onClick={() => setConfirmDisablePassword(false)}
+                  className="px-4 py-2 bg-gray-100 text-sebastian-gray rounded-lg hover:bg-gray-200 transition-colors text-sm"
+                >
+                  キャンセル
+                </button>
+              </div>
             </div>
-            <p className="text-xs text-sebastian-lightgray">
-              マスターパスワードを設定すると、APIキーなどの機密情報が暗号化されて保存されます。
-              アプリ起動時にパスワード入力が必要になります。
-            </p>
-            <button
-              onClick={() => setShowPasswordModal(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-sebastian-navy text-white rounded-lg hover:bg-sebastian-dark transition-colors text-sm font-medium"
-            >
-              <Lock size={14} />
-              パスワードを設定・変更
-            </button>
-          </div>
+          )}
         </div>
       </OrnateCard>
 
@@ -1294,8 +1420,15 @@ export default function Settings() {
 
       {showPasswordModal && (
         <MasterPasswordSetupModal
-          onClose={() => setShowPasswordModal(false)}
-          onPasswordSet={() => {}}
+          onClose={() => {
+            setShowPasswordModal(false);
+            setSessionState(getState());
+          }}
+          onPasswordSet={async () => {
+            const hash = await getSetting(SETTING_KEYS.MASTER_PASSWORD_HASH);
+            setForm(f => ({ ...f, masterPasswordEnabled: !!hash }));
+            setSessionState(getState());
+          }}
         />
       )}
     </div>
