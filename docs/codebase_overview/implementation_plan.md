@@ -110,16 +110,22 @@
   - `decrypt(value)` → `"ENC:"` プレフィックス付き値を復号、なければ平文とみなして通過（後方互換）
 - **設定キー追加** (`src/lib/settings.ts`): `MASTER_PASSWORD_HASH` / `SESSION_DURATION`
 
-### セッション期限切れバナー（T2-6 実装済）
+### ロック解除モーダル（Phase 2 T2-5 実装済）
 
-`src/components/SessionExpiredBanner.tsx` が期限切れをユーザーに通知する。
+`src/components/UnlockModal.tsx` がアプリ起動時のパスワード入力UIを提供。
 
-- **表示条件**: `master_password_hash` 設定済み かつ `isUnlocked()` が `false` の場合のみ表示
-- **ポーリング**: `useEffect` 内で 60 秒間隔の `setInterval` により自動検知
-- **再認証フロー**: バナー内のパスワード入力 → `unlock()` → 成功でバナー非表示
-- **緊急モード（赤色）**: `triggerSessionExpiredUrgent()` 関数を外部（T2-7 等）から呼び出すと DOM カスタムイベント (`session-expired-urgent`) を発火し、バナーが赤色に変化
-- **配置**: `MainLayout.tsx` の最上部（Sidebar・main コンテンツの上）に配置。既存 UI 操作をブロックしない
-- **アクセシビリティ**: `role="alert"` / `aria-live="polite"` を付与
+- **起動時チェック** (`App.tsx`):
+  - マウント時に `MASTER_PASSWORD_HASH` 設定を確認
+  - ハッシュが存在し、かつセッションが無効（`isUnlocked() === false`）の場合にモーダル表示
+  - ハッシュ未設定（機能オフ）の場合はモーダルを表示しない
+- **UI構成**:
+  - パスワード入力フィールド（表示/非表示切り替えボタン付き）
+  - 「ロック解除」ボタン
+  - 誤入力時：「パスワードが違います」エラーメッセージ
+  - 空入力時：「パスワードを入力してください」エラーメッセージ
+- **制約**:
+  - モーダルは閉じるボタンなし（正しいパスワード入力のみで解除可能）
+  - ロード中は入力・ボタンを無効化
 
 ### テーマシステム
 
