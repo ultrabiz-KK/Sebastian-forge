@@ -82,6 +82,7 @@ interface AIProvider {
   callJson(system: string, user: string): Promise<string>;
   listModels(): Promise<ModelInfo[]>;
   testConnection(): Promise<{ ok: boolean; message: string }>;
+  withModelOverride(model: string): AIProvider;
 }
 
 // ─── モデルキャッシュ（TTL: 1時間） ─────────────────────────────
@@ -128,10 +129,11 @@ function cleanJsonResponse(raw: string): string {
 class GeminiProvider implements AIProvider {
   readonly id = 'gemini';
   readonly name = 'Gemini API';
+  _modelOverride?: string;
 
   private async getConfig() {
     const apiKey = await getSetting(SETTING_KEYS.GEMINI_API_KEY);
-    const model = (await getSetting(SETTING_KEYS.GEMINI_MODEL)) ?? 'gemini-2.0-flash';
+    const model = this._modelOverride ?? (await getSetting(SETTING_KEYS.GEMINI_MODEL)) ?? 'gemini-2.0-flash';
     return { apiKey, model };
   }
 
@@ -246,10 +248,11 @@ class GeminiProvider implements AIProvider {
 class OllamaProvider implements AIProvider {
   readonly id = 'ollama';
   readonly name = 'Ollama';
+  _modelOverride?: string;
 
   private async getConfig() {
     const endpoint = (await getSetting(SETTING_KEYS.OLLAMA_ENDPOINT)) ?? 'http://localhost:11434';
-    const model = (await getSetting(SETTING_KEYS.OLLAMA_MODEL)) ?? 'qwen2.5:7b';
+    const model = this._modelOverride ?? (await getSetting(SETTING_KEYS.OLLAMA_MODEL)) ?? 'qwen2.5:7b';
     return { endpoint, model };
   }
 
@@ -329,10 +332,11 @@ class OllamaProvider implements AIProvider {
 class ClaudeProvider implements AIProvider {
   readonly id = 'claude';
   readonly name = 'Claude (Anthropic)';
+  _modelOverride?: string;
 
   private async getConfig() {
     const apiKey = await getSetting(SETTING_KEYS.CLAUDE_API_KEY);
-    const model = (await getSetting(SETTING_KEYS.CLAUDE_MODEL)) ?? 'claude-3-5-haiku-20241022';
+    const model = this._modelOverride ?? (await getSetting(SETTING_KEYS.CLAUDE_MODEL)) ?? 'claude-3-5-haiku-20241022';
     return { apiKey, model };
   }
 
@@ -420,10 +424,11 @@ class ClaudeProvider implements AIProvider {
 class OpenAIProvider implements AIProvider {
   readonly id = 'openai';
   readonly name = 'OpenAI';
+  _modelOverride?: string;
 
   private async getConfig() {
     const apiKey = await getSetting(SETTING_KEYS.OPENAI_API_KEY);
-    const model = (await getSetting(SETTING_KEYS.OPENAI_MODEL)) ?? 'gpt-4o-mini';
+    const model = this._modelOverride ?? (await getSetting(SETTING_KEYS.OPENAI_MODEL)) ?? 'gpt-4o-mini';
     return { apiKey, model };
   }
 
@@ -531,13 +536,14 @@ class OpenAICompatibleProvider implements AIProvider {
     private readonly apiKeySettingKey: string | null,
     private readonly modelSettingKey: string,
     private readonly defaultEndpoint: string,
-    private readonly defaultModel: string
+    private readonly defaultModel: string,
+    private readonly modelOverride?: string,
   ) {}
 
   private async getConfig() {
     const endpoint = (this.endpointSettingKey ? await getSetting(this.endpointSettingKey) : null) ?? this.defaultEndpoint;
     const apiKey = (this.apiKeySettingKey ? await getSetting(this.apiKeySettingKey) : null) ?? '';
-    const model = (await getSetting(this.modelSettingKey)) ?? this.defaultModel;
+    const model = this.modelOverride ?? (await getSetting(this.modelSettingKey)) ?? this.defaultModel;
     return { endpoint, apiKey, model };
   }
 
@@ -638,11 +644,11 @@ class OpenAICompatibleProvider implements AIProvider {
   }
 }
 
-// ─── カスタムプロバイダービルダー ────────────────────────────────
+// ─── カスタムプロバイダービルダー ────────────────────────────────────
 
-function buildCustomProvider(def: CustomProviderDef): AIProvider {
+function buildCustomProvider(def: CustomProviderDef, featureModelOverride?: string): AIProvider {
+  const modelToUse = featureModelOverride ?? def.modelOverride ?? '';
   if (def.type === 'openai_compat') {
-    // OpenAI互換カスタムプロバイダー（設定値を直接保持）
     const headers = (key: string): Record<string, string> => {
       const h: Record<string, string> = { 'Content-Type': 'application/json' };
       if (key) h['Authorization'] = `Bearer ${key}`;
@@ -656,7 +662,7 @@ function buildCustomProvider(def: CustomProviderDef): AIProvider {
           method: 'POST',
           headers: headers(def.apiKey),
           body: JSON.stringify({
-            model: def.modelOverride ?? '',
+            model: modelToUse,
             messages: [{ role: 'system', content: system }, { role: 'user', content: user }],
             temperature: 0.3,
             max_tokens: 8192,
@@ -678,7 +684,7 @@ function buildCustomProvider(def: CustomProviderDef): AIProvider {
           method: 'POST',
           headers: headers(def.apiKey),
           body: JSON.stringify({
-            model: def.modelOverride ?? '',
+            model: modelToUse,
             messages: [{ role: 'system', content: jsonSystem }, { role: 'user', content: user }],
             temperature: 0.1,
             max_tokens: 8192,
@@ -716,7 +722,7 @@ function buildCustomProvider(def: CustomProviderDef): AIProvider {
           const res = await fetch(`${def.endpoint}/v1/chat/completions`, {
             method: 'POST',
             headers: headers(def.apiKey),
-            body: JSON.stringify({ model: def.modelOverride ?? '', messages: [{ role: 'user', content: 'hi' }], max_tokens: 10 }),
+            body: JSON.stringify({ model: modelToUse, messages: [{ role: 'user', content: 'hi' }], max_tokens: 10 }),
             signal: AbortSignal.timeout(120_000),
           });
           if (!res.ok) {
@@ -731,7 +737,7 @@ function buildCustomProvider(def: CustomProviderDef): AIProvider {
     };
   }
 
-  // claude_compat: Claude互換エンドポイント
+  const claudeModelToUse = featureModelOverride ?? def.modelOverride ?? 'claude-3-5-haiku-20241022';
   return {
     id: def.id,
     name: def.name,
@@ -740,7 +746,7 @@ function buildCustomProvider(def: CustomProviderDef): AIProvider {
       const res = await fetch(`${def.endpoint}/v1/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-api-key': def.apiKey, 'anthropic-version': '2023-06-01' },
-        body: JSON.stringify({ model: def.modelOverride ?? 'claude-3-5-haiku-20241022', max_tokens: 8192, system, messages: [{ role: 'user', content: user }] }),
+        body: JSON.stringify({ model: claudeModelToUse, max_tokens: 8192, system, messages: [{ role: 'user', content: user }] }),
         signal: AbortSignal.timeout(60_000),
       });
       if (!res.ok) {
@@ -758,7 +764,7 @@ function buildCustomProvider(def: CustomProviderDef): AIProvider {
       const res = await fetch(`${def.endpoint}/v1/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-api-key': def.apiKey, 'anthropic-version': '2023-06-01' },
-        body: JSON.stringify({ model: def.modelOverride ?? 'claude-3-5-haiku-20241022', max_tokens: 8192, system: jsonSystem, messages: [{ role: 'user', content: user }] }),
+        body: JSON.stringify({ model: claudeModelToUse, max_tokens: 8192, system: jsonSystem, messages: [{ role: 'user', content: user }] }),
         signal: AbortSignal.timeout(60_000),
       });
       if (!res.ok) {
@@ -776,7 +782,7 @@ function buildCustomProvider(def: CustomProviderDef): AIProvider {
         const res = await fetch(`${def.endpoint}/v1/messages`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'x-api-key': def.apiKey, 'anthropic-version': '2023-06-01' },
-          body: JSON.stringify({ model: def.modelOverride ?? 'claude-3-5-haiku-20241022', max_tokens: 10, messages: [{ role: 'user', content: 'hi' }] }),
+          body: JSON.stringify({ model: claudeModelToUse, max_tokens: 10, messages: [{ role: 'user', content: 'hi' }] }),
           signal: AbortSignal.timeout(120_000),
         });
         if (!res.ok) {
@@ -815,11 +821,42 @@ export const PRESET_PROVIDER_LIST = [
   { id: 'ollama',     name: 'Ollama',        sub: 'ローカル' },
 ] as const;
 
+// ─── モデル上書きラッパー ─────────────────────────────────────────
+
+function wrapProviderWithModel(base: AIProvider, modelId: string): AIProvider {
+  const originalGetConfig = (base as any).getConfig?.bind(base);
+  return {
+    id: base.id,
+    name: base.name,
+    callText: async (sys, usr) => {
+      const provider = await getProviderWithModel(base.id, modelId);
+      return provider.callText(sys, usr);
+    },
+    callJson: async (sys, usr) => {
+      const provider = await getProviderWithModel(base.id, modelId);
+      return provider.callJson(sys, usr);
+    },
+    listModels: () => base.listModels(),
+    testConnection: () => base.testConnection(),
+  };
+}
+
+async function getProviderWithModel(providerId: string, modelId: string): Promise<AIProvider> {
+  const provider = await getProvider(providerId);
+  (provider as any)._modelOverride = modelId;
+  return provider;
+}
+
 // ─── ファクトリ ──────────────────────────────────────────────────
 
-export async function getProvider(providerId: string): Promise<AIProvider> {
+export async function getProvider(providerId: string, featureModelOverride?: string): Promise<AIProvider> {
   const preset = PRESET_PROVIDERS[providerId];
-  if (preset) return preset;
+  if (preset) {
+    if (featureModelOverride) {
+      (preset as any)._modelOverride = featureModelOverride;
+    }
+    return preset;
+  }
 
   // カスタムプロバイダー検索
   try {
@@ -827,7 +864,7 @@ export async function getProvider(providerId: string): Promise<AIProvider> {
     if (raw) {
       const customs = JSON.parse(raw) as CustomProviderDef[];
       const custom = customs.find(c => c.id === providerId);
-      if (custom) return buildCustomProvider(custom);
+      if (custom) return buildCustomProvider(custom, featureModelOverride);
     }
   } catch { /* パース失敗は無視 */ }
 
@@ -842,11 +879,22 @@ const FEATURE_PROVIDER_KEYS: Record<FeatureKey, string> = {
   task_extract:    SETTING_KEYS.FEATURE_PROVIDER_TASK_EXTRACT,
 };
 
+const FEATURE_MODEL_KEYS: Record<FeatureKey, string> = {
+  daily_report:    SETTING_KEYS.FEATURE_MODEL_DAILY_REPORT,
+  weekly_report:   SETTING_KEYS.FEATURE_MODEL_WEEKLY_REPORT,
+  briefing:        SETTING_KEYS.FEATURE_MODEL_BRIEFING,
+  calendar_comment: SETTING_KEYS.FEATURE_MODEL_CALENDAR_COMMENT,
+  task_extract:    SETTING_KEYS.FEATURE_MODEL_TASK_EXTRACT,
+};
+
 export async function getProviderForFeature(feature?: FeatureKey): Promise<AIProvider> {
   if (feature) {
     const featureProviderId = await getSetting(FEATURE_PROVIDER_KEYS[feature]);
     if (featureProviderId && featureProviderId !== 'disabled' && featureProviderId !== '') {
-      try { return await getProvider(featureProviderId); } catch { /* グローバル設定にフォールバック */ }
+      try {
+        const featureModel = await getSetting(FEATURE_MODEL_KEYS[feature]);
+        return await getProvider(featureProviderId, featureModel || undefined);
+      } catch { /* グローバル設定にフォールバック */ }
     }
   }
 

@@ -36,6 +36,11 @@ export const SETTING_KEYS = {
   FEATURE_PROVIDER_BRIEFING: 'feature_provider_briefing',
   FEATURE_PROVIDER_CALENDAR_COMMENT: 'feature_provider_calendar_comment',
   FEATURE_PROVIDER_TASK_EXTRACT: 'feature_provider_task_extract',
+  FEATURE_MODEL_DAILY_REPORT: 'feature_model_daily_report',
+  FEATURE_MODEL_WEEKLY_REPORT: 'feature_model_weekly_report',
+  FEATURE_MODEL_BRIEFING: 'feature_model_briefing',
+  FEATURE_MODEL_CALENDAR_COMMENT: 'feature_model_calendar_comment',
+  FEATURE_MODEL_TASK_EXTRACT: 'feature_model_task_extract',
   // モデル一覧キャッシュ（TTL: 1時間）
   MODELS_CACHE: 'models_cache',
   REMINDER_ENABLED: 'reminder_enabled',
