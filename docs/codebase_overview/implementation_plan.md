@@ -79,6 +79,7 @@
 - JSON 呼び出しは各プロバイダーの `callJson()` で吸収（Gemini: `responseMimeType`、Ollama: `format: 'json'`、OpenAI: `response_format`、Claude: system prompt 指示）。
 - モデル一覧は TTL 1時間のキャッシュ（`models_cache` キー）で管理。
 - **カスタムプロバイダー** は `SETTING_KEYS.CUSTOM_PROVIDERS` にJSON配列で保存。
+- **タイムアウト設定**: `callText`/`callJson` は60秒、`testConnection` は120秒（2分）。接続テストはAPIサーバーのレスポンス遅延対策として長めに設定。
 - 既存の公開関数（`generateDailyReport` 等）のシグネチャは変更なし。各ページへの影響ゼロ。
 
 ### テーマシステム
