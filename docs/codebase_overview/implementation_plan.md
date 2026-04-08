@@ -80,6 +80,7 @@
 - モデル一覧は TTL 1時間のキャッシュ（`models_cache` キー）で管理。
 - **カスタムプロバイダー** は `SETTING_KEYS.CUSTOM_PROVIDERS` にJSON配列で保存。
 - 既存の公開関数（`generateDailyReport` 等）のシグネチャは変更なし。各ページへの影響ゼロ。
+- **ModelSelectorコンポーネント** (`src/components/ModelSelector.tsx`) はモデル一覧をプロバイダー/ファミリーごとにグループ表示（Claude / OpenAI / Gemini / Other）。各グループ内はモデルID順でソート。検索フィルタリングは引き続き動作。
 
 ### テーマシステム
 
