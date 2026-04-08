@@ -222,7 +222,7 @@ class GeminiProvider implements AIProvider {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: 'test' }] }] }),
-          signal: AbortSignal.timeout(8000),
+          signal: AbortSignal.timeout(120_000),
         }
       );
       if (res.status === 400) return { ok: true, message: '接続成功 — Gemini APIに接続できました' };
@@ -398,7 +398,7 @@ class ClaudeProvider implements AIProvider {
           'anthropic-version': '2023-06-01',
         },
         body: JSON.stringify({ model, max_tokens: 10, messages: [{ role: 'user', content: 'hi' }] }),
-        signal: AbortSignal.timeout(10_000),
+        signal: AbortSignal.timeout(120_000),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({})) as { error?: { message?: string } };
@@ -502,7 +502,7 @@ class OpenAIProvider implements AIProvider {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
         body: JSON.stringify({ model, messages: [{ role: 'user', content: 'hi' }], max_tokens: 10 }),
-        signal: AbortSignal.timeout(10_000),
+        signal: AbortSignal.timeout(120_000),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({})) as { error?: { message?: string } };
@@ -616,7 +616,7 @@ class OpenAICompatibleProvider implements AIProvider {
         method: 'POST',
         headers: this.buildHeaders(apiKey),
         body: JSON.stringify({ model, messages: [{ role: 'user', content: 'hi' }], max_tokens: 10 }),
-        signal: AbortSignal.timeout(10_000),
+        signal: AbortSignal.timeout(120_000),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({})) as { error?: { message?: string } };
@@ -705,7 +705,7 @@ function buildCustomProvider(def: CustomProviderDef): AIProvider {
             method: 'POST',
             headers: headers(def.apiKey),
             body: JSON.stringify({ model: def.modelOverride ?? '', messages: [{ role: 'user', content: 'hi' }], max_tokens: 10 }),
-            signal: AbortSignal.timeout(10_000),
+            signal: AbortSignal.timeout(120_000),
           });
           if (!res.ok) {
             const body = await res.json().catch(() => ({})) as { error?: { message?: string } };
@@ -765,7 +765,7 @@ function buildCustomProvider(def: CustomProviderDef): AIProvider {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'x-api-key': def.apiKey, 'anthropic-version': '2023-06-01' },
           body: JSON.stringify({ model: def.modelOverride ?? 'claude-3-5-haiku-20241022', max_tokens: 10, messages: [{ role: 'user', content: 'hi' }] }),
-          signal: AbortSignal.timeout(10_000),
+          signal: AbortSignal.timeout(120_000),
         });
         if (!res.ok) {
           const body = await res.json().catch(() => ({})) as { error?: { message?: string } };
@@ -884,7 +884,7 @@ export async function checkGeminiConnection(apiKey?: string, model?: string): Pr
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: 'test' }] }] }),
-        signal: AbortSignal.timeout(8000),
+          signal: AbortSignal.timeout(120_000),
       }
     );
     if (res.status === 400) return { connected: true };
