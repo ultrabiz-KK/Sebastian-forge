@@ -1,7 +1,8 @@
 // AI呼び出しレイヤー — マルチプロバイダー対応
 // callAI() / callAIForJson() の公開インターフェース（generateDailyReport等）は後方互換を維持
 
-import { getSetting, setSetting, SETTING_KEYS } from './settings';
+import { getSetting, setSetting, getDecryptedSetting, SETTING_KEYS } from './settings';
+import { decrypt, isUnlocked } from './session';
 import { STATUS_LABEL, PRIORITY_LABEL } from './constants';
 
 // ─── 公開型定義 ──────────────────────────────────────────────────
@@ -132,7 +133,7 @@ class GeminiProvider implements AIProvider {
   _modelOverride?: string;
 
   private async getConfig() {
-    const apiKey = await getSetting(SETTING_KEYS.GEMINI_API_KEY);
+    const apiKey = await getDecryptedSetting(SETTING_KEYS.GEMINI_API_KEY);
     const model = this._modelOverride ?? (await getSetting(SETTING_KEYS.GEMINI_MODEL)) ?? 'gemini-2.0-flash';
     return { apiKey, model };
   }
@@ -197,7 +198,7 @@ class GeminiProvider implements AIProvider {
   async listModels(): Promise<ModelInfo[]> {
     const cached = await getCachedModels(this.id);
     if (cached) return cached;
-    const apiKey = await getSetting(SETTING_KEYS.GEMINI_API_KEY);
+    const apiKey = await getDecryptedSetting(SETTING_KEYS.GEMINI_API_KEY);
     if (!apiKey) return [];
     try {
       const res = await fetch(
@@ -335,7 +336,7 @@ class ClaudeProvider implements AIProvider {
   _modelOverride?: string;
 
   private async getConfig() {
-    const apiKey = await getSetting(SETTING_KEYS.CLAUDE_API_KEY);
+    const apiKey = await getDecryptedSetting(SETTING_KEYS.CLAUDE_API_KEY);
     const model = this._modelOverride ?? (await getSetting(SETTING_KEYS.CLAUDE_MODEL)) ?? 'claude-3-5-haiku-20241022';
     return { apiKey, model };
   }
@@ -379,7 +380,7 @@ class ClaudeProvider implements AIProvider {
   async listModels(): Promise<ModelInfo[]> {
     const cached = await getCachedModels(this.id);
     if (cached) return cached;
-    const apiKey = await getSetting(SETTING_KEYS.CLAUDE_API_KEY);
+    const apiKey = await getDecryptedSetting(SETTING_KEYS.CLAUDE_API_KEY);
     if (!apiKey) return [];
     try {
       const res = await fetch('https://api.anthropic.com/v1/models', {
@@ -427,7 +428,7 @@ class OpenAIProvider implements AIProvider {
   _modelOverride?: string;
 
   private async getConfig() {
-    const apiKey = await getSetting(SETTING_KEYS.OPENAI_API_KEY);
+    const apiKey = await getDecryptedSetting(SETTING_KEYS.OPENAI_API_KEY);
     const model = this._modelOverride ?? (await getSetting(SETTING_KEYS.OPENAI_MODEL)) ?? 'gpt-4o-mini';
     return { apiKey, model };
   }
@@ -485,7 +486,7 @@ class OpenAIProvider implements AIProvider {
   async listModels(): Promise<ModelInfo[]> {
     const cached = await getCachedModels(this.id);
     if (cached) return cached;
-    const apiKey = await getSetting(SETTING_KEYS.OPENAI_API_KEY);
+    const apiKey = await getDecryptedSetting(SETTING_KEYS.OPENAI_API_KEY);
     if (!apiKey) return [];
     try {
       const res = await fetch('https://api.openai.com/v1/models', {
@@ -542,7 +543,7 @@ class OpenAICompatibleProvider implements AIProvider {
 
   private async getConfig() {
     const endpoint = (this.endpointSettingKey ? await getSetting(this.endpointSettingKey) : null) ?? this.defaultEndpoint;
-    const apiKey = (this.apiKeySettingKey ? await getSetting(this.apiKeySettingKey) : null) ?? '';
+    const apiKey = (this.apiKeySettingKey ? await getDecryptedSetting(this.apiKeySettingKey) : null) ?? '';
     const model = this.modelOverride ?? (await getSetting(this.modelSettingKey)) ?? this.defaultModel;
     return { endpoint, apiKey, model };
   }
@@ -864,7 +865,20 @@ export async function getProvider(providerId: string, featureModelOverride?: str
     if (raw) {
       const customs = JSON.parse(raw) as CustomProviderDef[];
       const custom = customs.find(c => c.id === providerId);
-      if (custom) return buildCustomProvider(custom, featureModelOverride);
+      if (custom) {
+        const decryptedCustom = { ...custom };
+        if (custom.apiKey && custom.apiKey.startsWith('ENC:')) {
+          if (!isUnlocked()) {
+            throw new Error('セッションが期限切れです。パスワードを再入力してください。');
+          }
+          try {
+            decryptedCustom.apiKey = await decrypt(custom.apiKey);
+          } catch {
+            throw new Error('カスタムプロバイダーのAPIキー復号に失敗しました。');
+          }
+        }
+        return buildCustomProvider(decryptedCustom, featureModelOverride);
+      }
     }
   } catch { /* パース失敗は無視 */ }
 

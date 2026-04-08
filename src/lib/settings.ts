@@ -1,4 +1,5 @@
 import { selectDb, executeDb } from './db';
+import { encrypt, decrypt as sessionDecrypt, isUnlocked } from './session';
 
 export const SETTING_KEYS = {
   DAILY_REPORT_PATH: 'daily_report_path',
@@ -52,9 +53,18 @@ export const SETTING_KEYS = {
   SYNC_FOLDER: 'sync_folder',
   LAST_SYNC_AT: 'last_sync_at',
   // マスターパスワード
-  MASTER_PASSWORD_HASH: 'master_password_hash', // bcryptハッシュ、未設定=機能オフ
-  SESSION_DURATION: 'session_duration',          // 'app_restart'|'1h'|'6h'|'1d'|'2w'|'1m'|'3m'|'forever'
+  MASTER_PASSWORD_HASH: 'master_password_hash',
+  SESSION_DURATION: 'session_duration',
 } as const;
+
+export const ENCRYPTED_KEYS = [
+  SETTING_KEYS.GEMINI_API_KEY,
+  SETTING_KEYS.CLAUDE_API_KEY,
+  SETTING_KEYS.OPENAI_API_KEY,
+  SETTING_KEYS.GROQ_API_KEY,
+  SETTING_KEYS.OPENROUTER_API_KEY,
+  SETTING_KEYS.NANOGPT_API_KEY,
+] as const;
 
 export async function getSetting(key: string): Promise<string | null> {
   try {
@@ -75,4 +85,72 @@ export async function setSetting(key: string, value: string): Promise<void> {
 export async function getAllSettings(): Promise<Record<string, string>> {
   const rows = await selectDb<{ key: string; value: string }>('SELECT key, value FROM settings');
   return Object.fromEntries(rows.map(r => [r.key, r.value]));
+}
+
+function shouldEncrypt(key: string): boolean {
+  return ENCRYPTED_KEYS.includes(key as typeof ENCRYPTED_KEYS[number]);
+}
+
+export async function setEncryptedSetting(key: string, value: string): Promise<void> {
+  if (shouldEncrypt(key) && value && isUnlocked()) {
+    try {
+      const encrypted = await encrypt(value);
+      await setSetting(key, encrypted);
+      return;
+    } catch {
+      // 暗号化失敗時は平文保存（フォールバック）
+    }
+  }
+  await setSetting(key, value);
+}
+
+export async function getDecryptedSetting(key: string): Promise<string | null> {
+  const value = await getSetting(key);
+  if (!value) return null;
+  
+  if (value.startsWith('ENC:')) {
+    if (!isUnlocked()) {
+      return null;
+    }
+    try {
+      return await sessionDecrypt(value);
+    } catch {
+      return null;
+    }
+  }
+  
+  return value;
+}
+
+export { encrypt, sessionDecrypt as decrypt, isUnlocked };
+
+export interface CustomProviderDef {
+  id: string;
+  name: string;
+  type: 'openai_compat' | 'claude_compat';
+  endpoint: string;
+  apiKey: string;
+  modelOverride?: string;
+}
+
+export async function setEncryptedCustomProviders(providers: CustomProviderDef[]): Promise<void> {
+  if (!isUnlocked()) {
+    await setSetting(SETTING_KEYS.CUSTOM_PROVIDERS, JSON.stringify(providers));
+    return;
+  }
+  
+  const encryptedProviders: CustomProviderDef[] = [];
+  for (const p of providers) {
+    if (p.apiKey && !p.apiKey.startsWith('ENC:')) {
+      try {
+        encryptedProviders.push({ ...p, apiKey: await encrypt(p.apiKey) });
+      } catch {
+        encryptedProviders.push(p);
+      }
+    } else {
+      encryptedProviders.push(p);
+    }
+  }
+  
+  await setSetting(SETTING_KEYS.CUSTOM_PROVIDERS, JSON.stringify(encryptedProviders));
 }
