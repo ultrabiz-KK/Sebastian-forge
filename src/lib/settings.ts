@@ -51,6 +51,9 @@ export const SETTING_KEYS = {
   THEME: 'theme',
   SYNC_FOLDER: 'sync_folder',
   LAST_SYNC_AT: 'last_sync_at',
+  // マスターパスワード
+  MASTER_PASSWORD_HASH: 'master_password_hash', // bcryptハッシュ、未設定=機能オフ
+  SESSION_DURATION: 'session_duration',          // 'app_restart'|'1h'|'6h'|'1d'|'2w'|'1m'|'3m'|'forever'
 } as const;
 
 export async function getSetting(key: string): Promise<string | null> {

@@ -93,6 +93,23 @@
   - OpenRouter/nano-gpt等のモデルID（`provider/model` 形式）からプロバイダー名を抽出してグループ化
   - 各グループ内はモデルID順でソート、検索フィルタリングも維持
 
+### セッション管理（Phase 2 T2-3 実装済）
+
+`src/lib/session.ts` がセッション状態を一元管理する。
+
+- **セッション期間定数** (`SessionDuration`): `APP_RESTART` / `1h` / `6h` / `1d` / `2w` / `1m` / `3m` / `FOREVER`
+- **メモリ管理**: パスワード生値 (`_password`) と有効期限 (`_expiresAt`) はモジュールスコープ変数でメモリのみに保持
+- **localStorage**: `APP_RESTART` / `FOREVER` 以外の有効期限のみ `session_expires_at` キーに保存（パスワードは保存しない）
+- **API**:
+  - `unlock(password)` → Rust の `verify_password` で検証、成功時セッション開始
+  - `lock()` → メモリと localStorage をクリア
+  - `isUnlocked()` → 有効期限も含めて現在の状態をチェック（期限切れ時は自動ロック）
+  - `getPassword()` → セッション有効時のみパスワードを返す
+  - `getState()` → `SessionState` スナップショットを返す
+  - `encrypt(value)` → Rust `encrypt_value` のラッパー。戻り値に `"ENC:"` プレフィックスを付加
+  - `decrypt(value)` → `"ENC:"` プレフィックス付き値を復号、なければ平文とみなして通過（後方互換）
+- **設定キー追加** (`src/lib/settings.ts`): `MASTER_PASSWORD_HASH` / `SESSION_DURATION`
+
 ### テーマシステム
 
 - `light` / `dark` / `sepia` の 3 テーマ。
