@@ -147,6 +147,30 @@
   - モーダルは閉じるボタンなし（正しいパスワード入力のみで解除可能）
   - ロード中は入力・ボタンを無効化
 
+### APIキー暗号化保存フロー（Phase 2 T2-7 実装済）
+
+`src/lib/settings.ts` に暗号化/復号関数を追加。
+
+- **暗号化対象キー** (`ENCRYPTED_KEYS`):
+  - `GEMINI_API_KEY`, `CLAUDE_API_KEY`, `OPENAI_API_KEY`, `GROQ_API_KEY`, `OPENROUTER_API_KEY`, `NANOGPT_API_KEY`
+  - カスタムプロバイダーの `apiKey` フィールド（JSON配列内）
+- **保存時 (`setEncryptedSetting`)**:
+  - マスターパスワードが設定済みかつセッション解除済み → `encrypt()` で暗号化して `"ENC:"` プレフィックス付きで保存
+  - マスターパスワード未設定またはセッション無効 → 平文保存（後方互換）
+- **読み出し時 (`getDecryptedSetting`)**:
+  - 値が `"ENC:"` で始まる場合:
+    - セッション有効 → `decrypt()` で復号して返す
+    - セッション無効 → `null` を返す（API呼び出しエラー）
+  - 値が `"ENC:"` で始まらない → 平文としてそのまま返す（後方互換）
+- **カスタムプロバイダー対応** (`setEncryptedCustomProviders`):
+  - プロバイダー配列内の `apiKey` を暗号化して保存
+- **AI呼び出し側** (`src/lib/ai.ts`):
+  - 各プロバイダーの `getConfig()` で `getDecryptedSetting()` を使用
+  - セッション期限切れ時は `null` が返り、APIキー未設定エラーになる
+- **Settings.tsx連携**:
+  - APIキー保存時は `setEncryptedSetting()` を使用
+  - カスタムプロバイダー保存時は `setEncryptedCustomProviders()` を使用
+
 ### テーマシステム
 
 - `light` / `dark` / `sepia` の 3 テーマ。

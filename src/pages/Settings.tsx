@@ -7,12 +7,13 @@ import {
   Eye, EyeOff, Upload, Download, Clock, FileDown, Plus, Trash2, Pencil, X,
   Lock, Shield,
 } from 'lucide-react';
-import { getSetting, setSetting, SETTING_KEYS } from '../lib/settings';
+import { getSetting, setSetting, setEncryptedSetting, setEncryptedCustomProviders, SETTING_KEYS } from '../lib/settings';
+import type { CustomProviderDef } from '../lib/settings';
 import { PageHeader, OrnateCard, CardHeading } from '../components/ClassicUI';
 import { ModelSelector } from '../components/ModelSelector';
 import { registerShortcut } from '../lib/shortcut';
 import { MasterPasswordSetupModal } from '../components/MasterPasswordSetupModal';
-import { getProvider, PRESET_PROVIDER_LIST, type CustomProviderDef, type FeatureKey } from '../lib/ai';
+import { getProvider, PRESET_PROVIDER_LIST, type FeatureKey } from '../lib/ai';
 import { pushSync, pullSync, getSyncFolderDbMtime } from '../lib/sync';
 import { selectDb } from '../lib/db';
 import { format } from 'date-fns';
@@ -317,7 +318,7 @@ export default function Settings() {
     switch (providerId) {
       case 'gemini':
         saves.push(
-          setSetting(SETTING_KEYS.GEMINI_API_KEY, form.geminiApiKey),
+          setEncryptedSetting(SETTING_KEYS.GEMINI_API_KEY, form.geminiApiKey),
           setSetting(SETTING_KEYS.GEMINI_MODEL, form.geminiModel),
         );
         break;
@@ -329,31 +330,31 @@ export default function Settings() {
         break;
       case 'claude':
         saves.push(
-          setSetting(SETTING_KEYS.CLAUDE_API_KEY, form.claudeApiKey),
+          setEncryptedSetting(SETTING_KEYS.CLAUDE_API_KEY, form.claudeApiKey),
           setSetting(SETTING_KEYS.CLAUDE_MODEL, form.claudeModel),
         );
         break;
       case 'openai':
         saves.push(
-          setSetting(SETTING_KEYS.OPENAI_API_KEY, form.openaiApiKey),
+          setEncryptedSetting(SETTING_KEYS.OPENAI_API_KEY, form.openaiApiKey),
           setSetting(SETTING_KEYS.OPENAI_MODEL, form.openaiModel),
         );
         break;
       case 'groq':
         saves.push(
-          setSetting(SETTING_KEYS.GROQ_API_KEY, form.groqApiKey),
+          setEncryptedSetting(SETTING_KEYS.GROQ_API_KEY, form.groqApiKey),
           setSetting(SETTING_KEYS.GROQ_MODEL, form.groqModel),
         );
         break;
       case 'openrouter':
         saves.push(
-          setSetting(SETTING_KEYS.OPENROUTER_API_KEY, form.openrouterApiKey),
+          setEncryptedSetting(SETTING_KEYS.OPENROUTER_API_KEY, form.openrouterApiKey),
           setSetting(SETTING_KEYS.OPENROUTER_MODEL, form.openrouterModel),
         );
         break;
       case 'nanogpt':
         saves.push(
-          setSetting(SETTING_KEYS.NANOGPT_API_KEY, form.nanogptApiKey),
+          setEncryptedSetting(SETTING_KEYS.NANOGPT_API_KEY, form.nanogptApiKey),
           setSetting(SETTING_KEYS.NANOGPT_MODEL, form.nanogptModel),
         );
         break;
@@ -396,7 +397,7 @@ export default function Settings() {
       ? customProviders.map(c => c.id === editingCustomId ? def : c)
       : [...customProviders, def];
     setCustomProviders(updated);
-    await setSetting(SETTING_KEYS.CUSTOM_PROVIDERS, JSON.stringify(updated));
+    await setEncryptedCustomProviders(updated);
     setShowCustomForm(false);
     setEditingCustomId(null);
   };
@@ -405,7 +406,7 @@ export default function Settings() {
     if (!window.confirm(`カスタムプロバイダー "${id}" を削除しますか？`)) return;
     const updated = customProviders.filter(c => c.id !== id);
     setCustomProviders(updated);
-    await setSetting(SETTING_KEYS.CUSTOM_PROVIDERS, JSON.stringify(updated));
+    await setEncryptedCustomProviders(updated);
   };
 
   // ─── 保存 ────────────────────────────────────────────────────
@@ -420,19 +421,19 @@ export default function Settings() {
         setSetting(SETTING_KEYS.GLOBAL_SHORTCUT, form.globalShortcut),
         setSetting(SETTING_KEYS.AUTOSTART_ENABLED, String(form.autostartEnabled)),
         setSetting(SETTING_KEYS.AI_PROVIDER, form.aiProvider),
-        setSetting(SETTING_KEYS.GEMINI_API_KEY, form.geminiApiKey),
+        setEncryptedSetting(SETTING_KEYS.GEMINI_API_KEY, form.geminiApiKey),
         setSetting(SETTING_KEYS.GEMINI_MODEL, form.geminiModel),
         setSetting(SETTING_KEYS.OLLAMA_ENDPOINT, form.ollamaEndpoint),
         setSetting(SETTING_KEYS.OLLAMA_MODEL, form.ollamaModel),
-        setSetting(SETTING_KEYS.CLAUDE_API_KEY, form.claudeApiKey),
+        setEncryptedSetting(SETTING_KEYS.CLAUDE_API_KEY, form.claudeApiKey),
         setSetting(SETTING_KEYS.CLAUDE_MODEL, form.claudeModel),
-        setSetting(SETTING_KEYS.OPENAI_API_KEY, form.openaiApiKey),
+        setEncryptedSetting(SETTING_KEYS.OPENAI_API_KEY, form.openaiApiKey),
         setSetting(SETTING_KEYS.OPENAI_MODEL, form.openaiModel),
-        setSetting(SETTING_KEYS.GROQ_API_KEY, form.groqApiKey),
+        setEncryptedSetting(SETTING_KEYS.GROQ_API_KEY, form.groqApiKey),
         setSetting(SETTING_KEYS.GROQ_MODEL, form.groqModel),
-        setSetting(SETTING_KEYS.OPENROUTER_API_KEY, form.openrouterApiKey),
+        setEncryptedSetting(SETTING_KEYS.OPENROUTER_API_KEY, form.openrouterApiKey),
         setSetting(SETTING_KEYS.OPENROUTER_MODEL, form.openrouterModel),
-        setSetting(SETTING_KEYS.NANOGPT_API_KEY, form.nanogptApiKey),
+        setEncryptedSetting(SETTING_KEYS.NANOGPT_API_KEY, form.nanogptApiKey),
         setSetting(SETTING_KEYS.NANOGPT_MODEL, form.nanogptModel),
         setSetting(SETTING_KEYS.LMSTUDIO_ENDPOINT, form.lmstudioEndpoint),
         setSetting(SETTING_KEYS.LMSTUDIO_MODEL, form.lmstudioModel),
