@@ -322,3 +322,33 @@ connect-src: 'self'
 ```
 
 カスタムプロバイダーにローカルアドレス以外を使用する場合は `tauri.conf.json` への手動追加が必要。
+
+---
+
+## Phase 2 修正: マスターパスワード関連バグ修正（Phase 3 着手前）
+
+> 詳細は `docs/phase2_fixes/` を参照
+
+Phase 2 実装完了後に発見された4件のバグを修正する。2つの並列タスクに整理。
+
+### Task A: Settings.tsx 修正（3サブタスク・順次処理）
+
+| # | 内容 | 対象箇所 |
+|---|------|----------|
+| A-1 | マスターパスワードのスイッチデザインを他のトグルと統一 | セキュリティセクション |
+| A-2 | APIキー読み込みを `getDecryptedSetting()` に変更（二重暗号化防止） | `load()` / `handleSave()` |
+| A-3 | APIキーフィールドのグレーアウト＋編集ボタン追加 | `ApiKeyField` コンポーネント |
+
+### Task B: セッション自動有効化（並列実行可能）
+
+| # | 内容 | 対象箇所 |
+|---|------|----------|
+| B | パスワード設定後に `unlock()` を呼び出してセッション即時有効化 | `MasterPasswordSetupModal.tsx` |
+
+### 根本原因
+
+```
+Bug 2: handleSetup() で unlock() 未呼出 → セッション無効のまま
+  → Bug 3: getDecryptedSetting() が null → API接続不可
+  → Settings load で getSetting() 使用 → ENC:... がフォームに → 再保存で二重暗号化
+```
