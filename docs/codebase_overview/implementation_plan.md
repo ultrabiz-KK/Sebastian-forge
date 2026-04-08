@@ -16,7 +16,7 @@
 | スタイリング | TailwindCSS v4 |
 | ルーティング | react-router-dom v7 |
 | DB | SQLite（tauri-plugin-sql 経由） |
-| AI プロバイダー | Google Gemini API / Ollama（切替可） |
+| AI プロバイダー | Gemini / Ollama / Claude / OpenAI / Groq / OpenRouter / nano-gpt / LM Studio（切替可） |
 | 日付処理 | date-fns v4 |
 | アイコン | lucide-react |
 | フォント | Cinzel（display） / EB Garamond（serif） |
@@ -69,11 +69,17 @@
 - グローバルストアなし。各ページが独立した `useState` / `useEffect` で DB を直接読む。
 - ページ間の状態共有は URL（react-router-dom）と DB を介して行う。
 
-### AI 呼び出しパターン
+### AI 呼び出しパターン（Phase 1 改修済）
 
 - `src/lib/ai.ts` がプロバイダー抽象化レイヤー。
-- `callAI(systemPrompt, userMessage)` が Gemini/Ollama を透過的に呼び分ける。
-- JSON を返す API は `callAIForJson()` を使い、`responseMimeType: 'application/json'`（Gemini）または `format: 'json'`（Ollama）を指定。
+- **`AIProvider` インターフェース**（`callText`, `callJson`, `listModels`, `testConnection`）を各プロバイダークラスが実装。
+- **プリセットプロバイダー**: `GeminiProvider` / `OllamaProvider` / `ClaudeProvider` / `OpenAIProvider` / `OpenAICompatibleProvider`（Groq・OpenRouter・nano-gpt・LM Studio 共通）
+- **`getProvider(id)`** でプリセット + カスタムプロバイダーを解決するファクトリ。
+- **`getProviderForFeature(feature?)`** で機能別設定 → グローバル設定にフォールバック。
+- JSON 呼び出しは各プロバイダーの `callJson()` で吸収（Gemini: `responseMimeType`、Ollama: `format: 'json'`、OpenAI: `response_format`、Claude: system prompt 指示）。
+- モデル一覧は TTL 1時間のキャッシュ（`models_cache` キー）で管理。
+- **カスタムプロバイダー** は `SETTING_KEYS.CUSTOM_PROVIDERS` にJSON配列で保存。
+- 既存の公開関数（`generateDailyReport` 等）のシグネチャは変更なし。各ページへの影響ゼロ。
 
 ### テーマシステム
 
@@ -173,4 +179,12 @@ Pull: lib/sync.ts: pullSync()
 connect-src: 'self'
              https://generativelanguage.googleapis.com  ← Gemini API
              http://localhost:11434                      ← Ollama（ローカル）
+             https://api.anthropic.com                  ← Claude API
+             https://api.openai.com                     ← OpenAI API
+             https://api.groq.com                       ← Groq
+             https://openrouter.ai                      ← OpenRouter
+             https://nano-gpt.com                       ← nano-gpt
+             http://localhost:1234                       ← LM Studio（ローカル）
 ```
+
+カスタムプロバイダーにローカルアドレス以外を使用する場合は `tauri.conf.json` への手動追加が必要。
