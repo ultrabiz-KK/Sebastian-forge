@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { registerShortcut } from './lib/shortcut';
@@ -15,6 +15,8 @@ import Settings from './pages/Settings';
 import { getSetting, SETTING_KEYS } from './lib/settings';
 import { selectDb } from './lib/db';
 import { loadAndApplyTheme } from './lib/theme';
+import { isUnlocked } from './lib/session';
+import { UnlockModal } from './components/UnlockModal';
 
 function AppRoutes() {
   const navigate = useNavigate();
@@ -120,5 +122,27 @@ function AppRoutes() {
 }
 
 export default function App() {
+  const [showUnlock, setShowUnlock] = useState(false);
+  const [initialized, setInitialized] = useState(false);
+
+  useEffect(() => {
+    async function checkPassword() {
+      const hash = await getSetting(SETTING_KEYS.MASTER_PASSWORD_HASH);
+      if (hash && !isUnlocked()) {
+        setShowUnlock(true);
+      }
+      setInitialized(true);
+    }
+    checkPassword().catch(console.error);
+  }, []);
+
+  if (!initialized) {
+    return null;
+  }
+
+  if (showUnlock) {
+    return <UnlockModal onUnlock={() => setShowUnlock(false)} />;
+  }
+
   return <AppRoutes />;
 }
