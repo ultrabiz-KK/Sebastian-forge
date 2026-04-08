@@ -93,7 +93,7 @@
   - OpenRouter/nano-gpt等のモデルID（`provider/model` 形式）からプロバイダー名を抽出してグループ化
   - 各グループ内はモデルID順でソート、検索フィルタリングも維持
 
-### セッション管理（Phase 2 T2-3 実装済）
+### セッション管理（Phase 2 T2-3〜T2-6 実装済）
 
 `src/lib/session.ts` がセッション状態を一元管理する。
 
@@ -109,6 +109,17 @@
   - `encrypt(value)` → Rust `encrypt_value` のラッパー。戻り値に `"ENC:"` プレフィックスを付加
   - `decrypt(value)` → `"ENC:"` プレフィックス付き値を復号、なければ平文とみなして通過（後方互換）
 - **設定キー追加** (`src/lib/settings.ts`): `MASTER_PASSWORD_HASH` / `SESSION_DURATION`
+
+### セッション期限切れバナー（T2-6 実装済）
+
+`src/components/SessionExpiredBanner.tsx` が期限切れをユーザーに通知する。
+
+- **表示条件**: `master_password_hash` 設定済み かつ `isUnlocked()` が `false` の場合のみ表示
+- **ポーリング**: `useEffect` 内で 60 秒間隔の `setInterval` により自動検知
+- **再認証フロー**: バナー内のパスワード入力 → `unlock()` → 成功でバナー非表示
+- **緊急モード（赤色）**: `triggerSessionExpiredUrgent()` 関数を外部（T2-7 等）から呼び出すと DOM カスタムイベント (`session-expired-urgent`) を発火し、バナーが赤色に変化
+- **配置**: `MainLayout.tsx` の最上部（Sidebar・main コンテンツの上）に配置。既存 UI 操作をブロックしない
+- **アクセシビリティ**: `role="alert"` / `aria-live="polite"` を付与
 
 ### テーマシステム
 
