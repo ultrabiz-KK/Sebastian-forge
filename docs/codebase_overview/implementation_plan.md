@@ -110,6 +110,27 @@
   - `decrypt(value)` → `"ENC:"` プレフィックス付き値を復号、なければ平文とみなして通過（後方互換）
 - **設定キー追加** (`src/lib/settings.ts`): `MASTER_PASSWORD_HASH` / `SESSION_DURATION`
 
+### マスターパスワード設定モーダル（Phase 2 T2-4 実装済）
+
+`src/components/MasterPasswordSetupModal.tsx` がパスワード設定・変更・削除UIを提供する。
+
+- **状態管理**: `step` で `setup` | `change_confirm` | `change_set` | `delete_confirm` を管理
+- **パスワード設定フロー**:
+  1. 新パスワード + 確認パスワード入力（8文字以上バリデーション、一致確認）
+  2. Rust `hash_password` コマンドで bcrypt ハッシュ生成（コスト係数12）
+  3. `SETTING_KEYS.MASTER_PASSWORD_HASH` にハッシュを保存
+- **パスワード変更フロー**:
+  1. 現在のパスワード確認（`verify_password` コマンドで検証）
+  2. 新パスワード設定
+- **パスワード削除フロー**:
+  1. 現在のパスワード確認
+  2. `SETTING_KEYS.MASTER_PASSWORD_HASH` を空文字に設定
+- **UI 特徴**:
+  - 入力フィールドは全て `type="password"`（平文表示トグル付き）
+  - 成功/エラーメッセージはモーダル内に表示
+  - Sebastian デザインテーマの OrnateCard スタイルを踏襲
+- **Settings.tsx 連携**: セキュリティセクションに「パスワードを設定・変更」ボタンを配置
+
 ### テーマシステム
 
 - `light` / `dark` / `sepia` の 3 テーマ。

@@ -5,11 +5,13 @@ import { enable, disable, isEnabled } from '@tauri-apps/plugin-autostart';
 import {
   FolderOpen, CheckCircle, AlertCircle, Wifi, WifiOff, RefreshCw,
   Eye, EyeOff, Upload, Download, Clock, FileDown, Plus, Trash2, Pencil, X,
+  Lock, Shield,
 } from 'lucide-react';
 import { getSetting, setSetting, SETTING_KEYS } from '../lib/settings';
 import { PageHeader, OrnateCard, CardHeading } from '../components/ClassicUI';
 import { ModelSelector } from '../components/ModelSelector';
 import { registerShortcut } from '../lib/shortcut';
+import { MasterPasswordSetupModal } from '../components/MasterPasswordSetupModal';
 import { getProvider, PRESET_PROVIDER_LIST, type CustomProviderDef, type FeatureKey } from '../lib/ai';
 import { pushSync, pullSync, getSyncFolderDbMtime } from '../lib/sync';
 import { selectDb } from '../lib/db';
@@ -169,6 +171,7 @@ export default function Settings() {
   const [shortcutStatus, setShortcutStatus] = useState<'idle' | 'ok' | 'error'>('idle');
   const [shortcutError, setShortcutError] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
 
   // ─── 初期ロード ───────────────────────────────────────────────
 
@@ -1232,6 +1235,35 @@ export default function Settings() {
         </div>
       </OrnateCard>
 
+      {/* ── セキュリティ ───────────────────────────────────────────── */}
+      <OrnateCard className="p-6">
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <CardHeading>セキュリティ</CardHeading>
+              <p className="text-xs text-sebastian-lightgray mt-0.5">マスターパスワードで機密情報を暗号化</p>
+            </div>
+          </div>
+          <div className="bg-sebastian-parchment/50 border border-sebastian-border/40 rounded-lg px-4 py-3 space-y-2">
+            <div className="flex items-center gap-2">
+              <Shield size={16} className="text-sebastian-gold" />
+              <span className="text-sm font-medium text-sebastian-navy font-serif">マスターパスワード</span>
+            </div>
+            <p className="text-xs text-sebastian-lightgray">
+              マスターパスワードを設定すると、APIキーなどの機密情報が暗号化されて保存されます。
+              アプリ起動時にパスワード入力が必要になります。
+            </p>
+            <button
+              onClick={() => setShowPasswordModal(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-sebastian-navy text-white rounded-lg hover:bg-sebastian-dark transition-colors text-sm font-medium"
+            >
+              <Lock size={14} />
+              パスワードを設定・変更
+            </button>
+          </div>
+        </div>
+      </OrnateCard>
+
       {errorMsg && (
         <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-700">
           <AlertCircle size={16} className="flex-shrink-0 mt-0.5" />
@@ -1258,6 +1290,13 @@ export default function Settings() {
       <div className="text-xs text-sebastian-lightgray/50 border-t border-sebastian-border/30 pt-4 font-serif">
         Sebastian v1.1.1 — AI Work Supporter
       </div>
+
+      {showPasswordModal && (
+        <MasterPasswordSetupModal
+          onClose={() => setShowPasswordModal(false)}
+          onPasswordSet={() => {}}
+        />
+      )}
     </div>
   );
 }
