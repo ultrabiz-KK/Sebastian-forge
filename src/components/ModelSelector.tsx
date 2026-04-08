@@ -14,13 +14,36 @@ interface ModelSelectorProps {
 }
 
 function getModelGroup(modelId: string): string {
+  if (modelId.includes('/')) {
+    const [provider] = modelId.split('/');
+    const providerNames: Record<string, string> = {
+      anthropic: 'Anthropic',
+      openai: 'OpenAI',
+      google: 'Google',
+      meta: 'Meta',
+      mistral: 'Mistral',
+      deepseek: 'DeepSeek',
+      qwen: 'Qwen',
+    };
+    return providerNames[provider] || provider.charAt(0).toUpperCase() + provider.slice(1);
+  }
   if (modelId.startsWith('claude-')) return 'Claude';
   if (modelId.startsWith('gpt-') || modelId.startsWith('o1-') || modelId.startsWith('o3-')) return 'OpenAI';
   if (modelId.startsWith('gemini-')) return 'Gemini';
   return 'Other';
 }
 
-const GROUP_ORDER = ['Claude', 'OpenAI', 'Gemini', 'Other'];
+function sortGroups(groups: Map<string, ModelInfo[]>): { group: string; models: ModelInfo[] }[] {
+  const priorityOrder = ['Claude', 'OpenAI', 'Gemini', 'Anthropic', 'Google', 'Meta', 'Mistral', 'DeepSeek', 'Qwen'];
+  const result: { group: string; models: ModelInfo[] }[] = [];
+  for (const g of priorityOrder) {
+    if (groups.has(g)) result.push({ group: g, models: groups.get(g)! });
+  }
+  for (const [g, models] of groups) {
+    if (!priorityOrder.includes(g)) result.push({ group: g, models });
+  }
+  return result;
+}
 
 export function ModelSelector({ providerId, value, onChange, placeholder }: ModelSelectorProps) {
   const [models, setModels] = useState<ModelInfo[]>([]);
@@ -71,11 +94,7 @@ export function ModelSelector({ providerId, value, onChange, placeholder }: Mode
     for (const [_group, list] of groups) {
       list.sort((a, b) => a.id.localeCompare(b.id));
     }
-    const ordered: { group: string; models: ModelInfo[] }[] = [];
-    for (const g of GROUP_ORDER) {
-      if (groups.has(g)) ordered.push({ group: g, models: groups.get(g)! });
-    }
-    return ordered;
+    return sortGroups(groups);
   }, [filtered]);
 
   const handleSelect = (id: string) => {
