@@ -1,8 +1,8 @@
 # Phase 2: 共有コンテキスト
 
 ## ステータス
-- **フェーズ**: T2-3完了（セッション管理モジュール実装済）
-- **前提**: Phase 1完了、T2-1・T2-2完了
+- **フェーズ**: T2-6完了（セッション期限切れバナー実装済）
+- **前提**: Phase 1完了、T2-1〜T2-5完了
 - **最終更新**: 2026-04-08
 
 ## 重要な決定事項
@@ -18,6 +18,7 @@
 - **T2-1**: bcrypt / aes-gcm / pbkdf2 クレート追加
 - **T2-2**: Rust暗号化コマンド実装（`hash_password`, `verify_password`, `encrypt_value`, `decrypt_value`）
 - **T2-3**: `src/lib/session.ts` 新規実装、`src/lib/settings.ts` に `MASTER_PASSWORD_HASH` / `SESSION_DURATION` キー追加
+- **T2-6**: `src/components/SessionExpiredBanner.tsx` 新規実装、`MainLayout.tsx` 最上部に配置。`triggerSessionExpiredUrgent()` で外部から緊急モード発火可能
 
 ## 次タスク（T2-4以降）
 
