@@ -93,7 +93,7 @@
   - OpenRouter/nano-gpt等のモデルID（`provider/model` 形式）からプロバイダー名を抽出してグループ化
   - 各グループ内はモデルID順でソート、検索フィルタリングも維持
 
-### セッション管理（Phase 2 T2-3 実装済）
+### セッション管理（Phase 2 T2-3〜T2-6 実装済）
 
 `src/lib/session.ts` がセッション状態を一元管理する。
 
