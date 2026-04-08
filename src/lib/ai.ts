@@ -203,10 +203,14 @@ class GeminiProvider implements AIProvider {
         { signal: AbortSignal.timeout(10_000) }
       );
       if (!res.ok) return [];
-      const data = await res.json() as { models?: { name: string; displayName?: string }[] };
-      const models: ModelInfo[] = (data.models ?? [])
+      const data = await res.json() as { models?: { name: string; displayName?: string; supportedGenerationMethods?: string[] }[] };
+      const allModels = (data.models ?? [])
         .filter(m => m.name.includes('gemini'))
         .map(m => ({ id: m.name.replace('models/', ''), name: m.displayName ?? m.name.replace('models/', ''), providerId: this.id }));
+      const textModels = (data.models ?? [])
+        .filter(m => m.name.includes('gemini') && (m.supportedGenerationMethods?.includes('generateContent') ?? false))
+        .map(m => ({ id: m.name.replace('models/', ''), name: m.displayName ?? m.name.replace('models/', ''), providerId: this.id }));
+      const models = textModels.length > 0 ? textModels : allModels;
       await setCachedModels(this.id, models);
       return models;
     } catch { return []; }
@@ -485,8 +489,10 @@ class OpenAIProvider implements AIProvider {
       });
       if (!res.ok) return [];
       const data = await res.json() as { data?: { id: string }[] };
+      const excludePrefixes = ['dall-e-', 'whisper-', 'tts-', 'text-embedding-', 'text-moderation-'];
       const models: ModelInfo[] = (data.data ?? [])
-        .filter(m => m.id.startsWith('gpt-') || /^o\d/.test(m.id))
+        .filter(m => !excludePrefixes.some(p => m.id.startsWith(p)))
+        .filter(m => m.id.startsWith('gpt-') || m.id.startsWith('chatgpt-') || /^o\d/.test(m.id))
         .map(m => ({ id: m.id, name: m.id, providerId: this.id }))
         .sort((a, b) => a.id.localeCompare(b.id));
       await setCachedModels(this.id, models);
@@ -602,7 +608,10 @@ class OpenAICompatibleProvider implements AIProvider {
       });
       if (!res.ok) return [];
       const data = await res.json() as { data?: { id: string }[] };
-      const models: ModelInfo[] = (data.data ?? []).map(m => ({ id: m.id, name: m.id, providerId: this.id }));
+      const excludePrefixes = ['dall-e-', 'whisper-', 'tts-', 'text-embedding-', 'text-moderation-'];
+      const allModels: ModelInfo[] = (data.data ?? []).map(m => ({ id: m.id, name: m.id, providerId: this.id }));
+      const filteredModels = allModels.filter(m => !excludePrefixes.some(p => m.id.startsWith(p)));
+      const models = filteredModels.length > 0 ? filteredModels : allModels;
       await setCachedModels(this.id, models);
       return models;
     } catch { return []; }
@@ -694,7 +703,10 @@ function buildCustomProvider(def: CustomProviderDef): AIProvider {
           });
           if (!res.ok) return [];
           const data = await res.json() as { data?: { id: string }[] };
-          const models: ModelInfo[] = (data.data ?? []).map(m => ({ id: m.id, name: m.id, providerId: def.id }));
+          const excludePrefixes = ['dall-e-', 'whisper-', 'tts-', 'text-embedding-', 'text-moderation-'];
+          const allModels: ModelInfo[] = (data.data ?? []).map(m => ({ id: m.id, name: m.id, providerId: def.id }));
+          const filteredModels = allModels.filter(m => !excludePrefixes.some(p => m.id.startsWith(p)));
+          const models = filteredModels.length > 0 ? filteredModels : allModels;
           await setCachedModels(def.id, models);
           return models;
         } catch { return []; }
