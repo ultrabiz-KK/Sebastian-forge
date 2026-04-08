@@ -1,6 +1,15 @@
 use tauri::Manager;
 use tauri_plugin_sql::{Migration, MigrationKind};
 
+use aes_gcm::{
+    aead::{Aead, KeyInit},
+    Aes256Gcm, Key, Nonce,
+};
+use base64::{engine::general_purpose::STANDARD, Engine as _};
+use pbkdf2::pbkdf2_hmac;
+use rand::RngCore;
+use sha2::Sha256;
+
 #[tauri::command]
 fn greet(name: &str) -> String {
     format!("Hello, {}! You've been greeted from Rust!", name)
@@ -44,6 +53,74 @@ fn copy_file(src: String, dest: String) -> Result<(), String> {
 #[tauri::command]
 fn file_exists(path: String) -> bool {
     std::path::Path::new(&path).exists()
+}
+
+#[tauri::command]
+fn hash_password(password: String) -> Result<String, String> {
+    // コスト係数12はセキュリティと速度のバランスとして推奨値
+    bcrypt::hash(&password, 12).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn verify_password(password: String, hash: String) -> Result<bool, String> {
+    bcrypt::verify(&password, &hash).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn encrypt_value(plaintext: String, password: String) -> Result<String, String> {
+    let mut salt = [0u8; 16];
+    let mut iv = [0u8; 12];
+    // 毎回ランダムなソルト・IVを生成することで同じ入力でも異なる暗号文になる
+    rand::thread_rng().fill_bytes(&mut salt);
+    rand::thread_rng().fill_bytes(&mut iv);
+
+    let mut key_bytes = [0u8; 32];
+    pbkdf2_hmac::<Sha256>(password.as_bytes(), &salt, 100_000, &mut key_bytes);
+
+    let key = Key::<Aes256Gcm>::from_slice(&key_bytes);
+    let cipher = Aes256Gcm::new(key);
+    let nonce = Nonce::from_slice(&iv);
+
+    let ciphertext = cipher
+        .encrypt(nonce, plaintext.as_bytes())
+        .map_err(|e| e.to_string())?;
+
+    // フォーマット: salt(16) || iv(12) || ciphertext → Base64
+    let mut combined = Vec::with_capacity(16 + 12 + ciphertext.len());
+    combined.extend_from_slice(&salt);
+    combined.extend_from_slice(&iv);
+    combined.extend_from_slice(&ciphertext);
+
+    Ok(STANDARD.encode(&combined))
+}
+
+#[tauri::command]
+fn decrypt_value(ciphertext: String, password: String) -> Result<String, String> {
+    let combined = STANDARD
+        .decode(&ciphertext)
+        .map_err(|e| e.to_string())?;
+
+    if combined.len() < 16 + 12 + 1 {
+        return Err("暗号文のフォーマットが不正です".to_string());
+    }
+
+    let salt = &combined[..16];
+    let iv = &combined[16..28];
+    let enc_bytes = &combined[28..];
+
+    let mut key_bytes = [0u8; 32];
+    pbkdf2_hmac::<Sha256>(password.as_bytes(), salt, 100_000, &mut key_bytes);
+
+    let key = Key::<Aes256Gcm>::from_slice(&key_bytes);
+    let cipher = Aes256Gcm::new(key);
+    let nonce = Nonce::from_slice(iv);
+
+    // 認証タグ検証失敗（パスワード誤り含む）は詳細を漏らさないメッセージにする
+    let plaintext_bytes = cipher
+        .decrypt(nonce, enc_bytes)
+        .map_err(|_| "復号に失敗しました".to_string())?;
+
+    String::from_utf8(plaintext_bytes).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -149,7 +226,8 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             greet, write_text_file, read_text_file,
-            get_db_path, copy_file, file_exists, get_file_mtime
+            get_db_path, copy_file, file_exists, get_file_mtime,
+            hash_password, verify_password, encrypt_value, decrypt_value
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

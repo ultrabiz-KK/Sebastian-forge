@@ -125,6 +125,18 @@
 | `copy_file` | ファイルをコピー（同期機能で使用） |
 | `file_exists` | ファイルの存在確認 |
 | `get_file_mtime` | ファイルの最終更新日時（Unix 秒）を取得 |
+| `hash_password` | bcrypt（コスト係数12）でパスワードをハッシュ化 |
+| `verify_password` | bcrypt ハッシュとパスワードを照合 |
+| `encrypt_value` | AES-256-GCM + PBKDF2 で平文を暗号化し `base64(salt\|\|iv\|\|ciphertext)` を返す |
+| `decrypt_value` | `encrypt_value` の出力を復号。パスワード誤り時は `Err` を返す |
+
+### 暗号化実装詳細（T2-2）
+
+- **キー導出**: PBKDF2-HMAC-SHA256、イテレーション 100,000 回、32 バイトキー
+- **ソルト**: 16 バイト（毎回 `rand::thread_rng()` でランダム生成）
+- **IV/Nonce**: 12 バイト（毎回 `rand::thread_rng()` でランダム生成）
+- **出力フォーマット**: `salt(16B) || iv(12B) || ciphertext` を Base64 エンコード
+- **セキュリティ方針**: パスワードをログ・永続化しない。復号失敗時は詳細を漏らさない汎用エラーメッセージ
 
 ### SQLite マイグレーション
 
