@@ -20,6 +20,7 @@
 | 日付処理 | date-fns v4 |
 | アイコン | lucide-react |
 | フォント | Cinzel（display） / EB Garamond（serif） |
+| 暗号化（Rust） | bcrypt（パスワードハッシュ）/ aes-gcm（AES-256-GCM）/ pbkdf2+hmac+sha2（キー導出）/ base64（エンコード）/ rand（ソルト・IV生成） |
 
 ---
 
@@ -101,6 +102,18 @@
 ---
 
 ## Rust バックエンド設計方針
+
+### 依存クレート（暗号化関連）
+
+| クレート | 用途 |
+|----------|------|
+| `bcrypt` | パスワードハッシュ（コストファクター付き） |
+| `aes-gcm` | AES-256-GCM 対称暗号化（認証付き暗号化） |
+| `pbkdf2` | PBKDF2 キー導出関数 |
+| `hmac` | HMAC 認証コード生成 |
+| `sha2` | SHA-256/512 ハッシュ関数 |
+| `base64` | 暗号化データの Base64 エンコード/デコード |
+| `rand` | 安全な乱数生成（ソルト・IV 生成用） |
 
 ### Tauri コマンド一覧（lib.rs）
 
