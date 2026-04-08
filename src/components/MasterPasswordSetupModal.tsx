@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Lock, Eye, EyeOff, X, AlertCircle, CheckCircle, Trash2 } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
 import { getSetting, setSetting, SETTING_KEYS } from '../lib/settings';
+import { unlock } from '../lib/session';
 
 interface Props {
   onClose: () => void;
@@ -53,6 +54,7 @@ export function MasterPasswordSetupModal({ onClose, onPasswordSet }: Props) {
     try {
       const hash = await invoke<string>('hash_password', { password: newPassword });
       await setSetting(SETTING_KEYS.MASTER_PASSWORD_HASH, hash);
+      await unlock(newPassword);
       setSuccess('マスターパスワードを設定しました');
       onPasswordSet?.();
       setTimeout(() => onClose(), 1500);
@@ -106,6 +108,7 @@ export function MasterPasswordSetupModal({ onClose, onPasswordSet }: Props) {
     try {
       const hash = await invoke<string>('hash_password', { password: newPassword });
       await setSetting(SETTING_KEYS.MASTER_PASSWORD_HASH, hash);
+      await unlock(newPassword);
       setSuccess('パスワードを変更しました');
       onPasswordSet?.();
       setTimeout(() => onClose(), 1500);

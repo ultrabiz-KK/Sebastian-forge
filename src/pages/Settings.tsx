@@ -5,9 +5,9 @@ import { enable, disable, isEnabled } from '@tauri-apps/plugin-autostart';
 import {
   FolderOpen, CheckCircle, AlertCircle, Wifi, WifiOff, RefreshCw,
   Eye, EyeOff, Upload, Download, Clock, FileDown, Plus, Trash2, Pencil, X,
-  Lock, Shield,
+  Lock,
 } from 'lucide-react';
-import { getSetting, setSetting, setEncryptedSetting, setEncryptedCustomProviders, SETTING_KEYS } from '../lib/settings';
+import { getSetting, setSetting, setEncryptedSetting, setEncryptedCustomProviders, getDecryptedSetting, SETTING_KEYS } from '../lib/settings';
 import { isUnlocked, getState, type SessionDuration } from '../lib/session';
 import type { CustomProviderDef } from '../lib/settings';
 import { PageHeader, OrnateCard, CardHeading } from '../components/ClassicUI';
@@ -200,13 +200,13 @@ export default function Settings() {
       const [
         daily, weekly, shortcut, autostart, autostartActual,
         provider,
-        gemKey, gemModel,
+        gemModel,
         olEndpoint, olModel,
-        claudeKey, claudeModel,
-        openaiKey, openaiModel,
-        groqKey, groqModel,
-        openrouterKey, openrouterModel,
-        nanogptKey, nanogptModel,
+        claudeModel,
+        openaiModel,
+        groqModel,
+        openrouterModel,
+        nanogptModel,
         lmstudioEndpoint, lmstudioModel,
         customRaw,
         fpDaily, fpWeekly, fpBriefing, fpCalendar, fpTask,
@@ -221,19 +221,13 @@ export default function Settings() {
         getSetting(SETTING_KEYS.AUTOSTART_ENABLED),
         isEnabled().catch(() => false),
         getSetting(SETTING_KEYS.AI_PROVIDER),
-        getSetting(SETTING_KEYS.GEMINI_API_KEY),
         getSetting(SETTING_KEYS.GEMINI_MODEL),
         getSetting(SETTING_KEYS.OLLAMA_ENDPOINT),
         getSetting(SETTING_KEYS.OLLAMA_MODEL),
-        getSetting(SETTING_KEYS.CLAUDE_API_KEY),
         getSetting(SETTING_KEYS.CLAUDE_MODEL),
-        getSetting(SETTING_KEYS.OPENAI_API_KEY),
         getSetting(SETTING_KEYS.OPENAI_MODEL),
-        getSetting(SETTING_KEYS.GROQ_API_KEY),
         getSetting(SETTING_KEYS.GROQ_MODEL),
-        getSetting(SETTING_KEYS.OPENROUTER_API_KEY),
         getSetting(SETTING_KEYS.OPENROUTER_MODEL),
-        getSetting(SETTING_KEYS.NANOGPT_API_KEY),
         getSetting(SETTING_KEYS.NANOGPT_MODEL),
         getSetting(SETTING_KEYS.LMSTUDIO_ENDPOINT),
         getSetting(SETTING_KEYS.LMSTUDIO_MODEL),
@@ -257,6 +251,17 @@ export default function Settings() {
         getSetting(SETTING_KEYS.SESSION_DURATION),
       ]);
 
+      const [
+        gemKey, claudeKey, openaiKey, groqKey, openrouterKey, nanogptKey,
+      ] = await Promise.all([
+        getDecryptedSetting(SETTING_KEYS.GEMINI_API_KEY),
+        getDecryptedSetting(SETTING_KEYS.CLAUDE_API_KEY),
+        getDecryptedSetting(SETTING_KEYS.OPENAI_API_KEY),
+        getDecryptedSetting(SETTING_KEYS.GROQ_API_KEY),
+        getDecryptedSetting(SETTING_KEYS.OPENROUTER_API_KEY),
+        getDecryptedSetting(SETTING_KEYS.NANOGPT_API_KEY),
+      ]);
+
       const syncFolderVal = syncFolderSetting ?? '';
       setLastSyncAt(lastSyncAtSetting ?? null);
       if (syncFolderVal) {
@@ -265,9 +270,28 @@ export default function Settings() {
         }).catch(() => {});
       }
 
+      let customProvidersList: CustomProviderDef[] = [];
       try {
-        if (customRaw) setCustomProviders(JSON.parse(customRaw) as CustomProviderDef[]);
+        if (customRaw) customProvidersList = JSON.parse(customRaw) as CustomProviderDef[];
       } catch { /* パース失敗は無視 */ }
+
+      if (customProvidersList.length > 0 && isUnlocked()) {
+        const decryptedProviders: CustomProviderDef[] = [];
+        for (const p of customProvidersList) {
+          if (p.apiKey && p.apiKey.startsWith('ENC:')) {
+            try {
+              const decrypted = await getDecryptedSetting('__custom_' + p.id);
+              decryptedProviders.push({ ...p, apiKey: decrypted ?? p.apiKey });
+            } catch {
+              decryptedProviders.push(p);
+            }
+          } else {
+            decryptedProviders.push(p);
+          }
+        }
+        customProvidersList = decryptedProviders;
+      }
+      setCustomProviders(customProvidersList);
 
       setForm({
         dailyReportPath: daily ?? '',
@@ -622,6 +646,7 @@ export default function Settings() {
           onChange={v => setF('geminiApiKey', v)}
           showKey={showKeys['gemini']}
           onToggle={() => toggleKey('gemini')}
+          masterPasswordEnabled={form.masterPasswordEnabled}
         />
         <div className="space-y-1.5">
           <label className="block text-sm text-sebastian-gray">モデル</label>
@@ -655,6 +680,7 @@ export default function Settings() {
           onChange={v => setF('claudeApiKey', v)}
           showKey={showKeys['claude']}
           onToggle={() => toggleKey('claude')}
+          masterPasswordEnabled={form.masterPasswordEnabled}
         />
         <div className="space-y-1.5">
           <label className="block text-sm text-sebastian-gray">モデル</label>
@@ -675,6 +701,7 @@ export default function Settings() {
           onChange={v => setF('openaiApiKey', v)}
           showKey={showKeys['openai']}
           onToggle={() => toggleKey('openai')}
+          masterPasswordEnabled={form.masterPasswordEnabled}
         />
         <div className="space-y-1.5">
           <label className="block text-sm text-sebastian-gray">モデル</label>
@@ -695,6 +722,7 @@ export default function Settings() {
           onChange={v => setF('groqApiKey', v)}
           showKey={showKeys['groq']}
           onToggle={() => toggleKey('groq')}
+          masterPasswordEnabled={form.masterPasswordEnabled}
         />
         <div className="space-y-1.5">
           <label className="block text-sm text-sebastian-gray">モデル</label>
@@ -714,6 +742,7 @@ export default function Settings() {
           onChange={v => setF('openrouterApiKey', v)}
           showKey={showKeys['openrouter']}
           onToggle={() => toggleKey('openrouter')}
+          masterPasswordEnabled={form.masterPasswordEnabled}
         />
         <div className="space-y-1.5">
           <label className="block text-sm text-sebastian-gray">モデル</label>
@@ -733,6 +762,7 @@ export default function Settings() {
           onChange={v => setF('nanogptApiKey', v)}
           showKey={showKeys['nanogpt']}
           onToggle={() => toggleKey('nanogpt')}
+          masterPasswordEnabled={form.masterPasswordEnabled}
         />
         <div className="space-y-1.5">
           <label className="block text-sm text-sebastian-gray">モデル</label>
@@ -1272,86 +1302,82 @@ export default function Settings() {
           </p>
 
           {/* マスターパスワード有効/無効トグル */}
-          <div className="bg-sebastian-parchment/50 border border-sebastian-border/40 rounded-lg px-4 py-3 space-y-3">
-            <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between">
+            <div>
               <div className="flex items-center gap-2">
-                <Shield size={16} className="text-sebastian-gold" />
-                <span className="text-sm font-medium text-sebastian-navy">マスターパスワード</span>
+                <p className="text-sm text-sebastian-text">マスターパスワード</p>
                 {form.masterPasswordEnabled && (
                   <span className="text-[10px] px-1.5 py-0.5 bg-green-100 text-green-700 rounded border border-green-200">有効</span>
                 )}
               </div>
+              <p className="text-xs text-sebastian-lightgray mt-0.5">APIキーなどの機密情報を暗号化保存します</p>
+            </div>
+            <button
+              onClick={() => {
+                if (form.masterPasswordEnabled) {
+                  setConfirmDisablePassword(true);
+                } else {
+                  setShowPasswordModal(true);
+                }
+              }}
+              className={`relative w-11 h-6 rounded-full transition-colors ${form.masterPasswordEnabled ? 'bg-sebastian-navy' : 'bg-gray-200'}`}
+            >
+              <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${form.masterPasswordEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
+            </button>
+          </div>
+          
+          {form.masterPasswordEnabled && (
+            <div className="space-y-3 pt-2">
+              {/* セッション期間選択 */}
+              <div className="space-y-1.5">
+                <label className="block text-sm text-sebastian-gray">セッション期間</label>
+                <select
+                  className="w-full bg-sebastian-parchment/50 border border-sebastian-border rounded-lg px-3 py-2 text-sm outline-none focus:border-sebastian-gold/50 transition-colors"
+                  value={form.sessionDuration}
+                  onChange={e => setF('sessionDuration', e.target.value as SessionDuration)}
+                >
+                  {SESSION_DURATION_OPTIONS.map(opt => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+              </div>
+              
+              {/* 現在のセッション状態 */}
+              <div className="bg-white/50 border border-sebastian-border/30 rounded-lg px-3 py-2.5">
+                <div className="flex items-center gap-2 text-sm">
+                  {sessionState.unlocked ? (
+                    <>
+                      <CheckCircle size={14} className="text-green-600" />
+                      <span className="text-green-700 font-medium">セッション有効</span>
+                    </>
+                  ) : (
+                    <>
+                      <AlertCircle size={14} className="text-amber-600" />
+                      <span className="text-amber-700 font-medium">セッション期限切れ</span>
+                    </>
+                  )}
+                </div>
+                {sessionState.unlocked && sessionState.expiresAt && (
+                  <p className="text-xs text-sebastian-lightgray mt-1 ml-5">
+                    あと {format(sessionState.expiresAt, 'H時間m分', { locale: ja })} まで有効
+                  </p>
+                )}
+                {sessionState.unlocked && !sessionState.expiresAt && (
+                  <p className="text-xs text-sebastian-lightgray mt-1 ml-5">
+                    手動ロックまたはアプリ終了まで有効
+                  </p>
+                )}
+              </div>
+              
               <button
-                onClick={() => {
-                  if (form.masterPasswordEnabled) {
-                    setConfirmDisablePassword(true);
-                  } else {
-                    setShowPasswordModal(true);
-                  }
-                }}
-                className={`relative w-11 h-6 rounded-full transition-colors ${form.masterPasswordEnabled ? 'bg-sebastian-navy' : 'bg-gray-200'}`}
+                onClick={() => setShowPasswordModal(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-sebastian-navy text-white rounded-lg hover:bg-sebastian-dark transition-colors text-sm font-medium"
               >
-                <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${form.masterPasswordEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                <Lock size={14} />
+                パスワードを変更
               </button>
             </div>
-            
-            {form.masterPasswordEnabled ? (
-              <div className="space-y-3 pt-1">
-                {/* セッション期間選択 */}
-                <div className="space-y-1.5">
-                  <label className="block text-sm text-sebastian-gray">セッション期間</label>
-                  <select
-                    className="w-full bg-sebastian-parchment/50 border border-sebastian-border rounded-lg px-3 py-2 text-sm outline-none focus:border-sebastian-gold/50 transition-colors"
-                    value={form.sessionDuration}
-                    onChange={e => setF('sessionDuration', e.target.value as SessionDuration)}
-                  >
-                    {SESSION_DURATION_OPTIONS.map(opt => (
-                      <option key={opt.value} value={opt.value}>{opt.label}</option>
-                    ))}
-                  </select>
-                </div>
-                
-                {/* 現在のセッション状態 */}
-                <div className="bg-white/50 border border-sebastian-border/30 rounded-lg px-3 py-2.5">
-                  <div className="flex items-center gap-2 text-sm">
-                    {sessionState.unlocked ? (
-                      <>
-                        <CheckCircle size={14} className="text-green-600" />
-                        <span className="text-green-700 font-medium">セッション有効</span>
-                      </>
-                    ) : (
-                      <>
-                        <AlertCircle size={14} className="text-amber-600" />
-                        <span className="text-amber-700 font-medium">セッション期限切れ</span>
-                      </>
-                    )}
-                  </div>
-                  {sessionState.unlocked && sessionState.expiresAt && (
-                    <p className="text-xs text-sebastian-lightgray mt-1 ml-5">
-                      あと {format(sessionState.expiresAt, 'H時間m分', { locale: ja })} まで有効
-                    </p>
-                  )}
-                  {sessionState.unlocked && !sessionState.expiresAt && (
-                    <p className="text-xs text-sebastian-lightgray mt-1 ml-5">
-                      手動ロックまたはアプリ終了まで有効
-                    </p>
-                  )}
-                </div>
-                
-                <button
-                  onClick={() => setShowPasswordModal(true)}
-                  className="flex items-center gap-2 px-4 py-2 bg-sebastian-navy text-white rounded-lg hover:bg-sebastian-dark transition-colors text-sm font-medium"
-                >
-                  <Lock size={14} />
-                  パスワードを変更
-                </button>
-              </div>
-            ) : (
-              <p className="text-xs text-sebastian-lightgray">
-                有効化するには「パスワードを設定」をクリックしてください。
-              </p>
-            )}
-          </div>
+          )}
           
           {/* 無効化確認ダイアログ */}
           {confirmDisablePassword && (
@@ -1438,7 +1464,7 @@ export default function Settings() {
 // ─── APIキー入力フィールド（共通コンポーネント） ─────────────────
 
 function ApiKeyField({
-  label, hint, placeholder, id, value, onChange, showKey, onToggle,
+  label, hint, placeholder, id, value, onChange, showKey, onToggle, masterPasswordEnabled,
 }: {
   label: string;
   hint?: string;
@@ -1448,7 +1474,64 @@ function ApiKeyField({
   onChange: (v: string) => void;
   showKey: boolean;
   onToggle: () => void;
+  masterPasswordEnabled: boolean;
 }) {
+  const [editing, setEditing] = useState(!value);
+  const [originalValue, setOriginalValue] = useState(value);
+  const [wasEditing, setWasEditing] = useState(false);
+
+  // valueが外部から変更された場合（ロード完了時など）に同期
+  useEffect(() => {
+    if (!wasEditing && value && !originalValue) {
+      setOriginalValue(value);
+      setEditing(false);
+    }
+  }, [value, wasEditing, originalValue]);
+
+  const handleStartEdit = () => {
+    setOriginalValue(value);
+    setWasEditing(true);
+    if (masterPasswordEnabled) {
+      onChange(''); // マスターパスワード有効時は暗号化キーを表示しないためクリア
+    }
+    setEditing(true);
+  };
+
+  const handleCancel = () => {
+    onChange(originalValue);
+    setEditing(false);
+    setWasEditing(false);
+  };
+
+  const hasValue = originalValue || value;
+
+  if (!editing && hasValue) {
+    // 読み取り専用モード（保存済み値あり）
+    return (
+      <div className="space-y-1.5">
+        <label className="block text-sm text-sebastian-gray">{label}</label>
+        <div className="flex gap-2">
+          <input
+            type="password"
+            className="flex-1 bg-gray-100 border border-sebastian-border rounded-lg px-3 py-2 text-sm font-mono text-sebastian-lightgray cursor-not-allowed"
+            value="••••••••••••••••"
+            readOnly
+          />
+          <button
+            type="button"
+            onClick={handleStartEdit}
+            className="px-3 text-sebastian-lightgray hover:text-sebastian-navy bg-sebastian-parchment/50 border border-sebastian-border rounded-lg transition-colors"
+            title="編集"
+          >
+            <Pencil size={15} />
+          </button>
+        </div>
+        {hint && <p className="text-xs text-sebastian-lightgray">{hint}</p>}
+      </div>
+    );
+  }
+
+  // 編集モード（新規入力または編集中）
   return (
     <div className="space-y-1.5">
       <label className="block text-sm text-sebastian-gray">{label}</label>
@@ -1468,6 +1551,16 @@ function ApiKeyField({
         >
           {showKey ? <EyeOff size={15} /> : <Eye size={15} />}
         </button>
+        {hasValue && (
+          <button
+            type="button"
+            onClick={handleCancel}
+            className="px-3 text-sebastian-lightgray hover:text-gray-600 bg-gray-100 border border-sebastian-border rounded-lg transition-colors"
+            title="キャンセル"
+          >
+            <X size={15} />
+          </button>
+        )}
       </div>
       {hint && <p className="text-xs text-sebastian-lightgray">{hint}</p>}
     </div>
