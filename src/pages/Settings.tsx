@@ -1152,7 +1152,7 @@ export default function Settings() {
               onClick={() => setF('autostartEnabled', !form.autostartEnabled)}
               className={`relative w-11 h-6 rounded-full transition-colors ${form.autostartEnabled ? 'bg-sebastian-navy' : 'bg-gray-200'}`}
             >
-              <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${form.autostartEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
+              <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all duration-200 ${form.autostartEnabled ? 'left-6' : 'left-1'}`} />
             </button>
           </div>
         </div>
@@ -1170,7 +1170,7 @@ export default function Settings() {
               onClick={() => setF('reminderEnabled', !form.reminderEnabled)}
               className={`relative w-11 h-6 rounded-full transition-colors ${form.reminderEnabled ? 'bg-sebastian-navy' : 'bg-gray-200'}`}
             >
-              <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${form.reminderEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
+              <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all duration-200 ${form.reminderEnabled ? 'left-6' : 'left-1'}`} />
             </button>
           </div>
           {form.reminderEnabled && (
@@ -1193,7 +1193,7 @@ export default function Settings() {
                   onClick={() => setF('reminderWeekdaysOnly', !form.reminderWeekdaysOnly)}
                   className={`relative w-11 h-6 rounded-full transition-colors ${form.reminderWeekdaysOnly ? 'bg-sebastian-navy' : 'bg-gray-200'}`}
                 >
-                  <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${form.reminderWeekdaysOnly ? 'translate-x-6' : 'translate-x-1'}`} />
+                  <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all duration-200 ${form.reminderWeekdaysOnly ? 'left-6' : 'left-1'}`} />
                 </button>
               </div>
               <p className="text-xs text-sebastian-lightgray">
@@ -1348,7 +1348,7 @@ export default function Settings() {
               }}
               className={`relative w-11 h-6 flex-shrink-0 rounded-full transition-colors ${form.masterPasswordEnabled ? 'bg-sebastian-navy' : 'bg-gray-200'}`}
             >
-              <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${form.masterPasswordEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
+              <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all duration-200 ${form.masterPasswordEnabled ? 'left-6' : 'left-1'}`} />
             </button>
           </div>
           
