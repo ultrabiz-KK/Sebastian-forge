@@ -5,7 +5,7 @@ import { enable, disable, isEnabled } from '@tauri-apps/plugin-autostart';
 import {
   FolderOpen, CheckCircle, AlertCircle, Wifi, WifiOff, RefreshCw,
   Eye, EyeOff, Upload, Download, Clock, FileDown, Plus, Trash2, Pencil, X,
-  Lock,
+  Lock, Check,
 } from 'lucide-react';
 import { getSetting, setSetting, setEncryptedSetting, setEncryptedCustomProviders, getDecryptedSetting, SETTING_KEYS } from '../lib/settings';
 import { isUnlocked, getState, type SessionDuration } from '../lib/session';
@@ -192,6 +192,7 @@ export default function Settings() {
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [sessionState, setSessionState] = useState<{ unlocked: boolean; expiresAt: Date | null }>({ unlocked: false, expiresAt: null });
   const [confirmDisablePassword, setConfirmDisablePassword] = useState(false);
+  const [newKeySaved, setNewKeySaved] = useState(false);
 
   // ─── 初期ロード ───────────────────────────────────────────────
 
@@ -345,6 +346,13 @@ export default function Settings() {
 
   const toggleKey = (id: string) => setShowKeys(k => ({ ...k, [id]: !k[id] }));
 
+  // APIキー即時保存（確認ボタン押下時）
+  const saveApiKey = async (settingKey: string, value: string) => {
+    await setEncryptedSetting(settingKey, value);
+    setNewKeySaved(true);
+    setTimeout(() => setNewKeySaved(false), 3000);
+  };
+
   /** 現在選択中のプロバイダー設定をDBに保存してから接続テストを実行 */
   const handleTest = async () => {
     setTesting(true);
@@ -465,25 +473,31 @@ export default function Settings() {
     setSaveStatus('idle');
     setErrorMsg('');
     try {
+      // AI_PROVIDER は確実に保存する（Promise.allから分離して順序保証）
+      await setSetting(SETTING_KEYS.AI_PROVIDER, form.aiProvider);
+
+      // APIキーは空文字の場合スキップ（既存の暗号化済みキーを上書きしないため）
+      const apiKeySaves: Promise<void>[] = [];
+      if (form.geminiApiKey) apiKeySaves.push(setEncryptedSetting(SETTING_KEYS.GEMINI_API_KEY, form.geminiApiKey));
+      if (form.claudeApiKey) apiKeySaves.push(setEncryptedSetting(SETTING_KEYS.CLAUDE_API_KEY, form.claudeApiKey));
+      if (form.openaiApiKey) apiKeySaves.push(setEncryptedSetting(SETTING_KEYS.OPENAI_API_KEY, form.openaiApiKey));
+      if (form.groqApiKey) apiKeySaves.push(setEncryptedSetting(SETTING_KEYS.GROQ_API_KEY, form.groqApiKey));
+      if (form.openrouterApiKey) apiKeySaves.push(setEncryptedSetting(SETTING_KEYS.OPENROUTER_API_KEY, form.openrouterApiKey));
+      if (form.nanogptApiKey) apiKeySaves.push(setEncryptedSetting(SETTING_KEYS.NANOGPT_API_KEY, form.nanogptApiKey));
+
       await Promise.all([
+        ...apiKeySaves,
         setSetting(SETTING_KEYS.DAILY_REPORT_PATH, form.dailyReportPath),
         setSetting(SETTING_KEYS.WEEKLY_REPORT_PATH, form.weeklyReportPath),
         setSetting(SETTING_KEYS.GLOBAL_SHORTCUT, form.globalShortcut),
         setSetting(SETTING_KEYS.AUTOSTART_ENABLED, String(form.autostartEnabled)),
-        setSetting(SETTING_KEYS.AI_PROVIDER, form.aiProvider),
-        setEncryptedSetting(SETTING_KEYS.GEMINI_API_KEY, form.geminiApiKey),
         setSetting(SETTING_KEYS.GEMINI_MODEL, form.geminiModel),
         setSetting(SETTING_KEYS.OLLAMA_ENDPOINT, form.ollamaEndpoint),
         setSetting(SETTING_KEYS.OLLAMA_MODEL, form.ollamaModel),
-        setEncryptedSetting(SETTING_KEYS.CLAUDE_API_KEY, form.claudeApiKey),
         setSetting(SETTING_KEYS.CLAUDE_MODEL, form.claudeModel),
-        setEncryptedSetting(SETTING_KEYS.OPENAI_API_KEY, form.openaiApiKey),
         setSetting(SETTING_KEYS.OPENAI_MODEL, form.openaiModel),
-        setEncryptedSetting(SETTING_KEYS.GROQ_API_KEY, form.groqApiKey),
         setSetting(SETTING_KEYS.GROQ_MODEL, form.groqModel),
-        setEncryptedSetting(SETTING_KEYS.OPENROUTER_API_KEY, form.openrouterApiKey),
         setSetting(SETTING_KEYS.OPENROUTER_MODEL, form.openrouterModel),
-        setEncryptedSetting(SETTING_KEYS.NANOGPT_API_KEY, form.nanogptApiKey),
         setSetting(SETTING_KEYS.NANOGPT_MODEL, form.nanogptModel),
         setSetting(SETTING_KEYS.LMSTUDIO_ENDPOINT, form.lmstudioEndpoint),
         setSetting(SETTING_KEYS.LMSTUDIO_MODEL, form.lmstudioModel),
@@ -638,6 +652,7 @@ export default function Settings() {
     if (p === 'gemini') return (
       <div className="space-y-4 pt-1">
         <ApiKeyField
+          key="gemini"
           label="APIキー"
           hint="取得先: https://aistudio.google.com/apikey（無料）"
           placeholder="AIzaSy..."
@@ -647,6 +662,7 @@ export default function Settings() {
           showKey={showKeys['gemini']}
           onToggle={() => toggleKey('gemini')}
           masterPasswordEnabled={form.masterPasswordEnabled}
+          onSave={v => saveApiKey(SETTING_KEYS.GEMINI_API_KEY, v)}
         />
         <div className="space-y-1.5">
           <label className="block text-sm text-sebastian-gray">モデル</label>
@@ -672,6 +688,7 @@ export default function Settings() {
     if (p === 'claude') return (
       <div className="space-y-4 pt-1">
         <ApiKeyField
+          key="claude"
           label="APIキー"
           hint="取得先: https://console.anthropic.com/"
           placeholder="sk-ant-..."
@@ -681,6 +698,7 @@ export default function Settings() {
           showKey={showKeys['claude']}
           onToggle={() => toggleKey('claude')}
           masterPasswordEnabled={form.masterPasswordEnabled}
+          onSave={v => saveApiKey(SETTING_KEYS.CLAUDE_API_KEY, v)}
         />
         <div className="space-y-1.5">
           <label className="block text-sm text-sebastian-gray">モデル</label>
@@ -693,6 +711,7 @@ export default function Settings() {
     if (p === 'openai') return (
       <div className="space-y-4 pt-1">
         <ApiKeyField
+          key="openai"
           label="APIキー"
           hint="取得先: https://platform.openai.com/api-keys"
           placeholder="sk-..."
@@ -702,6 +721,7 @@ export default function Settings() {
           showKey={showKeys['openai']}
           onToggle={() => toggleKey('openai')}
           masterPasswordEnabled={form.masterPasswordEnabled}
+          onSave={v => saveApiKey(SETTING_KEYS.OPENAI_API_KEY, v)}
         />
         <div className="space-y-1.5">
           <label className="block text-sm text-sebastian-gray">モデル</label>
@@ -714,6 +734,7 @@ export default function Settings() {
     if (p === 'groq') return (
       <div className="space-y-4 pt-1">
         <ApiKeyField
+          key="groq"
           label="APIキー"
           hint="取得先: https://console.groq.com/keys（無料）"
           placeholder="gsk_..."
@@ -723,6 +744,7 @@ export default function Settings() {
           showKey={showKeys['groq']}
           onToggle={() => toggleKey('groq')}
           masterPasswordEnabled={form.masterPasswordEnabled}
+          onSave={v => saveApiKey(SETTING_KEYS.GROQ_API_KEY, v)}
         />
         <div className="space-y-1.5">
           <label className="block text-sm text-sebastian-gray">モデル</label>
@@ -734,6 +756,7 @@ export default function Settings() {
     if (p === 'openrouter') return (
       <div className="space-y-4 pt-1">
         <ApiKeyField
+          key="openrouter"
           label="APIキー"
           hint="取得先: https://openrouter.ai/keys"
           placeholder="sk-or-..."
@@ -743,6 +766,7 @@ export default function Settings() {
           showKey={showKeys['openrouter']}
           onToggle={() => toggleKey('openrouter')}
           masterPasswordEnabled={form.masterPasswordEnabled}
+          onSave={v => saveApiKey(SETTING_KEYS.OPENROUTER_API_KEY, v)}
         />
         <div className="space-y-1.5">
           <label className="block text-sm text-sebastian-gray">モデル</label>
@@ -754,6 +778,7 @@ export default function Settings() {
     if (p === 'nanogpt') return (
       <div className="space-y-4 pt-1">
         <ApiKeyField
+          key="nanogpt"
           label="APIキー"
           hint="取得先: https://nano-gpt.com/"
           placeholder="nano-..."
@@ -763,6 +788,7 @@ export default function Settings() {
           showKey={showKeys['nanogpt']}
           onToggle={() => toggleKey('nanogpt')}
           masterPasswordEnabled={form.masterPasswordEnabled}
+          onSave={v => saveApiKey(SETTING_KEYS.NANOGPT_API_KEY, v)}
         />
         <div className="space-y-1.5">
           <label className="block text-sm text-sebastian-gray">モデル</label>
@@ -1320,7 +1346,7 @@ export default function Settings() {
                   setShowPasswordModal(true);
                 }
               }}
-              className={`relative w-11 h-6 rounded-full transition-colors ${form.masterPasswordEnabled ? 'bg-sebastian-navy' : 'bg-gray-200'}`}
+              className={`relative w-11 h-6 flex-shrink-0 rounded-full transition-colors ${form.masterPasswordEnabled ? 'bg-sebastian-navy' : 'bg-gray-200'}`}
             >
               <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${form.masterPasswordEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
             </button>
@@ -1424,6 +1450,13 @@ export default function Settings() {
         </div>
       )}
 
+      {newKeySaved && (
+        <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-sm text-green-700">
+          <CheckCircle size={16} className="flex-shrink-0" />
+          新しいキーを登録しました
+        </div>
+      )}
+
       <div className="flex items-center gap-4">
         <button
           onClick={handleSave}
@@ -1464,7 +1497,7 @@ export default function Settings() {
 // ─── APIキー入力フィールド（共通コンポーネント） ─────────────────
 
 function ApiKeyField({
-  label, hint, placeholder, id, value, onChange, showKey, onToggle, masterPasswordEnabled,
+  label, hint, placeholder, id, value, onChange, showKey, onToggle, masterPasswordEnabled, onSave,
 }: {
   label: string;
   hint?: string;
@@ -1475,10 +1508,12 @@ function ApiKeyField({
   showKey: boolean;
   onToggle: () => void;
   masterPasswordEnabled: boolean;
+  onSave?: (newValue: string) => Promise<void>;
 }) {
   const [editing, setEditing] = useState(!value);
   const [originalValue, setOriginalValue] = useState(value);
   const [wasEditing, setWasEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   // valueが外部から変更された場合（ロード完了時など）に同期
   useEffect(() => {
@@ -1503,7 +1538,22 @@ function ApiKeyField({
     setWasEditing(false);
   };
 
+  const handleConfirm = async () => {
+    if (!value || !onSave) return;
+    setSaving(true);
+    try {
+      await onSave(value);
+      setOriginalValue(value);
+      setEditing(false);
+      setWasEditing(false);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const hasValue = originalValue || value;
+  // 新しい値が入力されていてかつ元の値と異なる場合（または新規入力）
+  const hasNewInput = value && value !== originalValue;
 
   if (!editing && hasValue) {
     // 読み取り専用モード（保存済み値あり）
@@ -1551,7 +1601,18 @@ function ApiKeyField({
         >
           {showKey ? <EyeOff size={15} /> : <Eye size={15} />}
         </button>
-        {hasValue && (
+        {/* 新しいキーが入力されている場合: チェックマーク（確認）ボタンを表示 */}
+        {hasNewInput && onSave ? (
+          <button
+            type="button"
+            onClick={handleConfirm}
+            disabled={saving}
+            className="px-3 text-green-600 hover:text-green-700 bg-green-50 border border-green-200 rounded-lg transition-colors disabled:opacity-50"
+            title="このキーを保存"
+          >
+            <Check size={15} />
+          </button>
+        ) : hasValue ? (
           <button
             type="button"
             onClick={handleCancel}
@@ -1560,7 +1621,7 @@ function ApiKeyField({
           >
             <X size={15} />
           </button>
-        )}
+        ) : null}
       </div>
       {hint && <p className="text-xs text-sebastian-lightgray">{hint}</p>}
     </div>
