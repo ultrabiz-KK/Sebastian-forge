@@ -418,7 +418,7 @@ Phase 2 実装完了後に発見された4件のバグを修正済み。
 
 **B**: `handleSetup()` / `handleChangeConfirm()` でハッシュ保存後に `unlock(newPassword)` を呼び出し、即座にセッションを有効化。
 
-### 根本原因と解決
+### Root Cause and Resolution
 
 ```
 Bug 2: handleSetup() で unlock() 未呼出 → セッション無効のまま
@@ -433,6 +433,35 @@ Bug 2: handleSetup() で unlock() 未呼出 → セッション無効のまま
 
 ---
 
+## Security Fix: Path Traversal Prevention (SR-1)
+
+`write_text_file`, `read_text_file`, `copy_file` コマンドにパス検証を追加し、任意ファイルアクセスを防止。
+
+### 実装内容
+
+| コマンド | 変更 |
+|----------|------|
+| `write_text_file` | `validate_path(&path)?` 追加 |
+| `read_text_file` | `validate_path(&path)?` 追加 |
+| `copy_file` | `validate_path(&src)?` + `validate_path(&dest)?` 追加 |
+
+### validate_path() 関数
+
+```rust
+fn validate_path(path: &str) -> Result<(), String> {
+    let p = Path::new(path);
+    for component in p.components() {
+        if matches!(component, std::path::Component::ParentDir) {
+            return Err("Access denied".to_string());
+        }
+    }
+    Ok(())
+}
+```
+
+- パスに `..`（ParentDir）が含まれる場合、`Err("Access denied")` を返す
+- 新しいクレートは追加せず、標準ライブラリ `std::path::Component` を使用
+- 日報/週報保存先・同期フォルダへの正規操作には影響なし
 ## Phase 2 追加修正: 暗号化フロー・カスタムプロバイダー復号（2026-04-10）
 
 ### SR-3: 暗号化失敗時の平文フォールバックを除去
