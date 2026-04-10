@@ -405,3 +405,72 @@ Bug 2: handleSetup() で unlock() 未呼出 → セッション無効のまま
   - A-2: getDecryptedSetting() 使用 → 正常に復号
   - A-3: 編集モード管理 → 意図しない上書き防止
 ```
+
+---
+
+## Phase 2 追加修正: 暗号化フロー・カスタムプロバイダー復号（2026-04-10）
+
+### SR-3: 暗号化失敗時の平文フォールバックを除去
+
+`src/lib/settings.ts` の `setEncryptedSetting` 関数から、暗号化失敗時の平文保存フォールバックを削除。
+
+**修正前:**
+```typescript
+export async function setEncryptedSetting(key: string, value: string): Promise<void> {
+  if (shouldEncrypt(key) && value && isUnlocked()) {
+    try {
+      const encrypted = await encrypt(value);
+      await setSetting(key, encrypted);
+      return;
+    } catch {
+      // 暗号化失敗時は平文保存（フォールバック）  ← セキュリティリスク
+    }
+  }
+  await setSetting(key, value);
+}
+```
+
+**修正後:**
+```typescript
+export async function setEncryptedSetting(key: string, value: string): Promise<void> {
+  if (shouldEncrypt(key) && value) {
+    if (!isUnlocked()) {
+      throw new Error('Session is locked. Unlock to save encrypted settings.');
+    }
+    const encrypted = await encrypt(value);
+    await setSetting(key, encrypted);
+    return;
+  }
+  await setSetting(key, value);
+}
+```
+
+**変更点:**
+- セッションがロックされている場合、明示的にエラーをスロー
+- 暗号化失敗時は平文保存ではなく例外を発生させる
+- セキュリティ観点: 暗号化すべき値を平文で保存することを防止
+
+### SR-5: カスタムプロバイダーのAPIキーが復号されない問題を修正
+
+`src/pages/Settings.tsx` のカスタムプロバイダー読み込み時の復号ロジックを修正。
+
+**修正前:**
+```typescript
+const decrypted = await getDecryptedSetting('__custom_' + p.id);  // 存在しないキーを指定
+decryptedProviders.push({ ...p, apiKey: decrypted ?? p.apiKey });
+```
+
+**修正後:**
+```typescript
+const decrypted = await decrypt(p.apiKey);  // 直接暗号化された値を復号
+decryptedProviders.push({ ...p, apiKey: decrypted });
+```
+
+**原因:**
+- カスタムプロバイダーのAPIキーは `SETTING_KEYS.CUSTOM_PROVIDERS` のJSON配列内に `ENC:` 形式で保存される
+- `getDecryptedSetting` は独立した設定キー用の関数であり、JSON内の値には使用できない
+- `decrypt` 関数（`sessionDecrypt` のエクスポート）を直接使用する必要がある
+
+**修正ファイル:**
+- `src/lib/settings.ts`: `setEncryptedSetting` のフォールバック削除
+- `src/pages/Settings.tsx`: インポートに `decrypt` を追加、カスタムプロバイダー復号ロジックを修正

@@ -92,14 +92,13 @@ function shouldEncrypt(key: string): boolean {
 }
 
 export async function setEncryptedSetting(key: string, value: string): Promise<void> {
-  if (shouldEncrypt(key) && value && isUnlocked()) {
-    try {
-      const encrypted = await encrypt(value);
-      await setSetting(key, encrypted);
-      return;
-    } catch {
-      // 暗号化失敗時は平文保存（フォールバック）
+  if (shouldEncrypt(key) && value) {
+    if (!isUnlocked()) {
+      throw new Error('Session is locked. Unlock to save encrypted settings.');
     }
+    const encrypted = await encrypt(value);
+    await setSetting(key, encrypted);
+    return;
   }
   await setSetting(key, value);
 }
