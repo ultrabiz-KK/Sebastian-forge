@@ -273,8 +273,198 @@
 
 ---
 
+## 並行改善タスク（Phase 2 セキュリティレビューより — 中・低重要度）
+
+> Phase 3 の S3 同期タスクと並行して実施する改善項目。
+> セキュリティレビューの高重要度（SR-1〜SR-6）は `docs/phase2_security_review/task_list.md` で先行対応済みの前提。
+
+---
+
+### IMP-1: PBKDF2イテレーション回数をOWASP推奨値に引き上げる
+
+**タイトル:** PBKDF2のイテレーション回数を100,000から210,000以上に引き上げる
+
+**説明:**
+
+1. **使用技術**
+   - Rust, `pbkdf2` クレート
+
+2. **具体的な作業内容**
+   - `src-tauri/src/lib.rs` L78, L112 の `100_000` を `210_000` 以上に変更
+   - OWASP 2023推奨: PBKDF2-SHA256で最低210,000回
+
+3. **対象ファイル・関連箇所**
+   - `src-tauri/src/lib.rs` — L78（encrypt_value）, L112（decrypt_value）
+
+4. **完了条件**
+   - イテレーション回数が210,000以上に更新されている
+   - `cd src-tauri && cargo build` が通る
+   - **注意**: 既存の暗号化済みデータとの互換性を確認すること（イテレーション回数変更でデコード不可になる可能性）
+
+5. **制約・やってはいけないこと**
+   - 既存ユーザーの暗号化済みAPIキーが復号不可にならないようマイグレーション戦略を検討すること
+
+---
+
+### IMP-2: Tauri権限設定を最小権限の原則に基づいて見直す
+
+**タイトル:** `default.json` の `fs:default`, `sql:default` を必要最小限の権限に制限する
+
+**説明:**
+
+1. **使用技術**
+   - Tauri v2 Capabilities
+
+2. **具体的な作業内容**
+   - `fs:default` → `fs:allow-read` + `fs:allow-write` で必要なスコープのみ許可
+   - `sql:default` → 使用するDB操作のみ許可
+   - 各権限のスコープを明示（アプリデータディレクトリ等）
+
+3. **対象ファイル・関連箇所**
+   - `src-tauri/capabilities/default.json`
+   - `src-tauri/capabilities/desktop.json`
+
+4. **完了条件**
+   - 全機能が動作し、不要な権限が除去されている
+
+5. **制約・やってはいけないこと**
+   - S3同期（T3-8）と競合しないよう調整すること
+
+---
+
+### IMP-3: ai.ts のfetch処理を共通ユーティリティに統合する
+
+**タイトル:** 5つのプロバイダーで重複しているfetch + エラーハンドリング + JSONパース処理を共通関数に統合する
+
+**説明:**
+
+1. **使用技術**
+   - TypeScript
+
+2. **具体的な作業内容**
+   - `fetchWithTimeout(url, options, timeoutMs)` のような共通関数を作成
+   - レスポンスステータスチェック、JSONパース、タイムアウト処理を統一
+   - 各プロバイダーの `callText` / `callJSON` メソッドをリファクタリング
+
+3. **対象ファイル・関連箇所**
+   - `src/lib/ai.ts` — 各プロバイダークラスの fetch 呼び出し箇所
+
+4. **完了条件**
+   - fetch関連の重複コードが解消されている
+   - `npm run build` が通る
+
+5. **制約・やってはいけないこと**
+   - 各プロバイダー固有のリクエストボディ構築ロジックは統合しない（プロバイダー固有のため）
+   - APIの戻り値の型を変更しない
+
+---
+
+### IMP-4: ページ間のデータ取得ロジック重複を解消する
+
+**タイトル:** Dashboard, DailyReport, Memo, WeeklyReport で重複するDB読み込みロジックを共通関数に統合する
+
+**説明:**
+
+1. **使用技術**
+   - TypeScript
+
+2. **具体的な作業内容**
+   - 日報・メモ・タスク読み込み処理が複数ページに重複
+   - `src/lib/` に共通のデータ取得関数を作成（例: `loadDaySnapshot(date)`, `loadTasksSummary()`）
+
+3. **対象ファイル・関連箇所**
+   - `src/pages/Dashboard.tsx`, `src/pages/DailyReport.tsx`, `src/pages/Memo.tsx`, `src/pages/WeeklyReport.tsx`
+   - `src/lib/` に新規ファイル追加（必要に応じて）
+
+4. **完了条件**
+   - 重複するSQL文字列・クエリロジックが1箇所に集約されている
+   - `npm run build` が通る
+
+5. **制約・やってはいけないこと**
+   - ページ固有のUI状態管理をlib層に移動しない
+   - デモモード（`demoMode.ts`）との互換性を維持する
+
+---
+
+### IMP-5: Settings.tsx のAPIキー保存ロジックを統一する
+
+**タイトル:** APIキー保存処理が3箇所に分散している問題を共通ヘルパーに統一する
+
+**説明:**
+
+1. **使用技術**
+   - TypeScript, React
+
+2. **具体的な作業内容**
+   - `saveApiKey()`, `saveProviderSettings()`, `handleSave()` 内のAPIキー保存ロジックを1つのヘルパー関数に統一
+   - 暗号化・平文の判定ロジックを集約
+
+3. **対象ファイル・関連箇所**
+   - `src/pages/Settings.tsx`
+
+4. **完了条件**
+   - APIキー保存の分岐ロジックが1箇所に集約されている
+   - `npm run build` が通る
+
+5. **制約・やってはいけないこと**
+   - SR-3（暗号化フォールバック修正）の成果を壊さない
+
+---
+
+### IMP-6: Dashboard/DailyReport のDB読み込みエラーをUIに表示する
+
+**タイトル:** DB読み込みエラーが `console.error` のみで握りつぶされている問題を修正し、ユーザーにエラーを表示する
+
+**説明:**
+
+1. **使用技術**
+   - React, TypeScript
+
+2. **具体的な作業内容**
+   - Dashboard, DailyReport 等の `useEffect` 内のDB読み込みで、catch ブロックが `console.error` のみ
+   - `errorMsg` state を追加し、エラー時にUIにバナー表示
+
+3. **対象ファイル・関連箇所**
+   - `src/pages/Dashboard.tsx`, `src/pages/DailyReport.tsx`
+
+4. **完了条件**
+   - DB接続エラー時にユーザーにエラーメッセージが表示される
+   - `npm run build` が通る
+
+5. **制約・やってはいけないこと**
+   - 既存のUI構造を大幅に変更しない（OrnateCard 内にエラーバナーを追加する程度）
+
+---
+
+### IMP-7: Gemini APIキーのURLクエリパラメータ露出を改善する
+
+**タイトル:** Gemini APIキーがURLに含まれる問題を確認し、可能であればヘッダー経由に変更する
+
+**説明:**
+
+1. **使用技術**
+   - TypeScript, Gemini API
+
+2. **具体的な作業内容**
+   - `ai.ts` L127 でGemini APIキーがURLクエリパラメータ `?key=xxx` に含まれている
+   - ネットワークログやブラウザ履歴に露出するリスク
+   - Gemini API仕様を確認し、`x-goog-api-key` ヘッダー経由での認証に変更可能か調査・実装
+
+3. **対象ファイル・関連箇所**
+   - `src/lib/ai.ts` — Gemini API呼び出し箇所
+
+4. **完了条件**
+   - APIキーがURLに露出しない（またはGemini API仕様上不可の場合はその旨を文書化）
+   - `npm run build` が通る
+
+5. **制約・やってはいけないこと**
+   - Gemini API仕様上ヘッダー認証が不可の場合は無理に変更しない
+
+---
+
 ## 完了チェックリスト
 
+### S3同期タスク
 - [ ] T3-1: S3クレート追加
 - [ ] T3-2: S3基本操作コマンド実装
 - [ ] T3-3: s3sync.tsモジュール実装
@@ -283,3 +473,12 @@
 - [ ] T3-6: バッチ同期タイマー
 - [ ] T3-7: Settings.tsx S3設定UI
 - [ ] T3-8: Tauri権限設定更新
+
+### 並行改善タスク
+- [ ] IMP-1: PBKDF2イテレーション回数引き上げ
+- [ ] IMP-2: Tauri権限最小化
+- [ ] IMP-3: ai.ts fetch処理統合
+- [ ] IMP-4: ページ間データ取得重複解消
+- [ ] IMP-5: Settings.tsx APIキー保存統一
+- [ ] IMP-6: DB読み込みエラーUI表示
+- [ ] IMP-7: Gemini APIキーURL露出改善
