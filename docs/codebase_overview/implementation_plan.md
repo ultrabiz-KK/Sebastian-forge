@@ -235,6 +235,31 @@ Tauri v2 ではウィンドウ操作ごとに明示的な許可が必要。
 - **`appWindow` のスコープ**: モジュールスコープで一度だけ `getCurrentWindow()` を実行（レンダリングごとの再生成を防止）
 - **テーマ対応**: `--titlebar-*` CSS 変数でライト / ダーク / セピア 3 テーマに自動追従
 
+### AIProvider withModelOverride 実装（2026-04-10 完了）
+
+各プロバイダークラスに `withModelOverride` メソッドを実装。
+
+#### 変更内容
+
+| プロバイダー | 実装方法 |
+|-------------|---------|
+| `GeminiProvider` | 新規インスタンス作成後 `_modelOverride` 設定 |
+| `OllamaProvider` | 新規インスタンス作成後 `_modelOverride` 設定 |
+| `ClaudeProvider` | 新規インスタンス作成後 `_modelOverride` 設定 |
+| `OpenAIProvider` | 新規インスタンス作成後 `_modelOverride` 設定 |
+| `OpenAICompatibleProvider` | コンストラクタ引数でモデルオーバーライドを受け取る新インスタンス作成 |
+| `buildCustomProvider` | 内部関数でモデルオーバーライドを適用し、`withModelOverride` で再構築 |
+
+#### エラー握りつぶし解消
+
+空の `catch` ブロックに `console.error` でログ出力を追加。以下の箇所を修正:
+
+- `getCachedModels` / `setCachedModels` のキャッシュエラー
+- 各プロバイダーの `listModels` エラー（Gemini, Ollama, Claude, OpenAI, OpenAICompatible, カスタムプロバイダー）
+- `getProvider` のカスタムプロバイダーパースエラー
+- `getProviderForFeature` の機能別設定取得エラー
+- `listAllProviders` のカスタムプロバイダー取得エラー
+
 
 
 ## Rust バックエンド設計方針
