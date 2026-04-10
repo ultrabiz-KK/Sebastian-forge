@@ -100,7 +100,7 @@ async function getCachedModels(providerId: string): Promise<ModelInfo[] | null> 
     if (!entry) return null;
     if (Date.now() - new Date(entry.fetchedAt).getTime() > CACHE_TTL_MS) return null;
     return entry.models;
-  } catch { return null; }
+  } catch (e) { console.error('[ai.ts] getCachedModels error:', e); return null; }
 }
 
 async function setCachedModels(providerId: string, models: ModelInfo[]): Promise<void> {
@@ -109,7 +109,7 @@ async function setCachedModels(providerId: string, models: ModelInfo[]): Promise
     const cache: ModelCache = raw ? JSON.parse(raw) : {};
     cache[providerId] = { models, fetchedAt: new Date().toISOString() };
     await setSetting(SETTING_KEYS.MODELS_CACHE, JSON.stringify(cache));
-  } catch { /* キャッシュ失敗は無視 */ }
+  } catch (e) { console.error('[ai.ts] setCachedModels error:', e); }
 }
 
 // ─── JSONレスポンスクリーナー ────────────────────────────────────
@@ -215,7 +215,7 @@ class GeminiProvider implements AIProvider {
       const models = textModels.length > 0 ? textModels : allModels;
       await setCachedModels(this.id, models);
       return models;
-    } catch { return []; }
+    } catch (e) { console.error('[ai.ts] Gemini listModels error:', e); return []; }
   }
 
   async testConnection(): Promise<{ ok: boolean; message: string }> {
@@ -240,6 +240,12 @@ class GeminiProvider implements AIProvider {
     } catch (e: unknown) {
       return { ok: false, message: e instanceof Error ? e.message : String(e) };
     }
+  }
+
+  withModelOverride(model: string): AIProvider {
+    const instance = new GeminiProvider();
+    instance._modelOverride = model;
+    return instance;
   }
 }
 
@@ -310,7 +316,7 @@ class OllamaProvider implements AIProvider {
       const models: ModelInfo[] = (data.models ?? []).map(m => ({ id: m.name, name: m.name, providerId: this.id }));
       await setCachedModels(this.id, models);
       return models;
-    } catch { return []; }
+    } catch (e) { console.error('[ai.ts] Ollama listModels error:', e); return []; }
   }
 
   async testConnection(): Promise<{ ok: boolean; message: string }> {
@@ -324,6 +330,12 @@ class OllamaProvider implements AIProvider {
     } catch (e: unknown) {
       return { ok: false, message: e instanceof Error ? e.message : String(e) };
     }
+  }
+
+  withModelOverride(model: string): AIProvider {
+    const instance = new OllamaProvider();
+    instance._modelOverride = model;
+    return instance;
   }
 }
 
@@ -391,7 +403,7 @@ class ClaudeProvider implements AIProvider {
       const models: ModelInfo[] = (data.data ?? []).map(m => ({ id: m.id, name: m.display_name ?? m.id, providerId: this.id }));
       await setCachedModels(this.id, models);
       return models;
-    } catch { return []; }
+    } catch (e) { console.error('[ai.ts] Claude listModels error:', e); return []; }
   }
 
   async testConnection(): Promise<{ ok: boolean; message: string }> {
@@ -416,6 +428,12 @@ class ClaudeProvider implements AIProvider {
     } catch (e: unknown) {
       return { ok: false, message: e instanceof Error ? e.message : String(e) };
     }
+  }
+
+  withModelOverride(model: string): AIProvider {
+    const instance = new ClaudeProvider();
+    instance._modelOverride = model;
+    return instance;
   }
 }
 
@@ -502,7 +520,7 @@ class OpenAIProvider implements AIProvider {
         .sort((a, b) => a.id.localeCompare(b.id));
       await setCachedModels(this.id, models);
       return models;
-    } catch { return []; }
+    } catch (e) { console.error('[ai.ts] OpenAI listModels error:', e); return []; }
   }
 
   async testConnection(): Promise<{ ok: boolean; message: string }> {
@@ -523,6 +541,12 @@ class OpenAIProvider implements AIProvider {
     } catch (e: unknown) {
       return { ok: false, message: e instanceof Error ? e.message : String(e) };
     }
+  }
+
+  withModelOverride(model: string): AIProvider {
+    const instance = new OpenAIProvider();
+    instance._modelOverride = model;
+    return instance;
   }
 }
 
@@ -620,7 +644,7 @@ class OpenAICompatibleProvider implements AIProvider {
       const models = filteredModels.length > 0 ? filteredModels : allModels;
       await setCachedModels(this.id, models);
       return models;
-    } catch { return []; }
+    } catch (e) { console.error(`[ai.ts] ${this.name} listModels error:`, e); return []; }
   }
 
   async testConnection(): Promise<{ ok: boolean; message: string }> {
@@ -641,6 +665,19 @@ class OpenAICompatibleProvider implements AIProvider {
     } catch (e: unknown) {
       return { ok: false, message: e instanceof Error ? e.message : String(e) };
     }
+  }
+
+  withModelOverride(model: string): AIProvider {
+    return new OpenAICompatibleProvider(
+      this.id,
+      this.name,
+      this.endpointSettingKey,
+      this.apiKeySettingKey,
+      this.modelSettingKey,
+      this.defaultEndpoint,
+      this.defaultModel,
+      model,
+    );
   }
 }
 
@@ -715,7 +752,7 @@ function buildCustomProvider(def: CustomProviderDef, featureModelOverride?: stri
           const models = filteredModels.length > 0 ? filteredModels : allModels;
           await setCachedModels(def.id, models);
           return models;
-        } catch { return []; }
+        } catch (e) { console.error(`[ai.ts] ${def.name} listModels error:`, e); return []; }
       },
       testConnection: async () => {
         try {
@@ -734,6 +771,10 @@ function buildCustomProvider(def: CustomProviderDef, featureModelOverride?: stri
           return { ok: false, message: e instanceof Error ? e.message : String(e) };
         }
       },
+      withModelOverride: (model: string) => buildCustomProvider(
+        { ...def, modelOverride: model },
+        featureModelOverride,
+      ),
     };
   }
 
@@ -794,6 +835,10 @@ function buildCustomProvider(def: CustomProviderDef, featureModelOverride?: stri
         return { ok: false, message: e instanceof Error ? e.message : String(e) };
       }
     },
+    withModelOverride: (model: string) => buildCustomProvider(
+      { ...def, modelOverride: model },
+      featureModelOverride,
+    ),
   };
 }
 
@@ -846,14 +891,15 @@ export async function getProvider(providerId: string, featureModelOverride?: str
           }
           try {
             decryptedCustom.apiKey = await decrypt(custom.apiKey);
-          } catch {
+          } catch (e) {
+            console.error('[ai.ts] カスタムプロバイダーAPIキー復号エラー:', e);
             throw new Error('カスタムプロバイダーのAPIキー復号に失敗しました。');
           }
         }
         return buildCustomProvider(decryptedCustom, featureModelOverride);
       }
     }
-  } catch { /* パース失敗は無視 */ }
+  } catch (e) { console.error('[ai.ts] getProvider カスタムプロバイダーパースエラー:', e); }
 
   throw new Error(`プロバイダー "${providerId}" が見つかりません`);
 }
@@ -881,7 +927,7 @@ export async function getProviderForFeature(feature?: FeatureKey): Promise<AIPro
       try {
         const featureModel = await getSetting(FEATURE_MODEL_KEYS[feature]);
         return await getProvider(featureProviderId, featureModel || undefined);
-      } catch { /* グローバル設定にフォールバック */ }
+      } catch (e) { console.error('[ai.ts] getProviderForFeature 機能別設定取得エラー:', e); }
     }
   }
 
@@ -900,7 +946,7 @@ export async function listAllProviders(): Promise<{ id: string; name: string; is
       const defs = JSON.parse(raw) as CustomProviderDef[];
       customs.push(...defs.map(d => ({ id: d.id, name: d.name, isCustom: true })));
     }
-  } catch { /* 無視 */ }
+  } catch (e) { console.error('[ai.ts] listAllProviders カスタムプロバイダー取得エラー:', e); }
   return [...PRESET_PROVIDER_LIST.map(p => ({ id: p.id, name: p.name })), ...customs];
 }
 
