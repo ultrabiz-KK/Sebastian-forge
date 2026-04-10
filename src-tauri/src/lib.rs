@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use tauri::Manager;
 use tauri_plugin_sql::{Migration, MigrationKind};
 
@@ -10,6 +12,16 @@ use pbkdf2::pbkdf2_hmac;
 use rand::RngCore;
 use sha2::Sha256;
 
+fn validate_path(path: &str) -> Result<(), String> {
+    let p = Path::new(path);
+    for component in p.components() {
+        if matches!(component, std::path::Component::ParentDir) {
+            return Err("Access denied".to_string());
+        }
+    }
+    Ok(())
+}
+
 #[tauri::command]
 fn greet(name: &str) -> String {
     format!("Hello, {}! You've been greeted from Rust!", name)
@@ -17,6 +29,7 @@ fn greet(name: &str) -> String {
 
 #[tauri::command]
 fn write_text_file(path: String, content: String) -> Result<(), String> {
+    validate_path(&path)?;
     use std::fs;
     use std::path::Path;
     let p = Path::new(&path);
@@ -28,6 +41,7 @@ fn write_text_file(path: String, content: String) -> Result<(), String> {
 
 #[tauri::command]
 fn read_text_file(path: String) -> Result<String, String> {
+    validate_path(&path)?;
     std::fs::read_to_string(&path).map_err(|e| e.to_string())
 }
 
@@ -41,13 +55,16 @@ fn get_db_path(app: tauri::AppHandle) -> Result<String, String> {
 
 #[tauri::command]
 fn copy_file(src: String, dest: String) -> Result<(), String> {
+    validate_path(&src)?;
+    validate_path(&dest)?;
     use std::fs;
-    use std::path::Path;
     let dest_path = Path::new(&dest);
     if let Some(parent) = dest_path.parent() {
         fs::create_dir_all(parent).map_err(|e| e.to_string())?;
     }
-    fs::copy(&src, dest_path).map(|_| ()).map_err(|e| e.to_string())
+    fs::copy(&src, dest_path)
+        .map(|_| ())
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -96,9 +113,7 @@ fn encrypt_value(plaintext: String, password: String) -> Result<String, String> 
 
 #[tauri::command]
 fn decrypt_value(ciphertext: String, password: String) -> Result<String, String> {
-    let combined = STANDARD
-        .decode(&ciphertext)
-        .map_err(|e| e.to_string())?;
+    let combined = STANDARD.decode(&ciphertext).map_err(|e| e.to_string())?;
 
     if combined.len() < 16 + 12 + 1 {
         return Err("暗号文のフォーマットが不正です".to_string());
@@ -126,7 +141,8 @@ fn decrypt_value(ciphertext: String, password: String) -> Result<String, String>
 #[tauri::command]
 fn get_file_mtime(path: String) -> Option<u64> {
     use std::time::UNIX_EPOCH;
-    std::fs::metadata(&path).ok()
+    std::fs::metadata(&path)
+        .ok()
         .and_then(|m| m.modified().ok())
         .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
         .map(|d| d.as_secs())
@@ -225,9 +241,17 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            greet, write_text_file, read_text_file,
-            get_db_path, copy_file, file_exists, get_file_mtime,
-            hash_password, verify_password, encrypt_value, decrypt_value
+            greet,
+            write_text_file,
+            read_text_file,
+            get_db_path,
+            copy_file,
+            file_exists,
+            get_file_mtime,
+            hash_password,
+            verify_password,
+            encrypt_value,
+            decrypt_value
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -235,8 +259,8 @@ pub fn run() {
 
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 fn setup_tray(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
-    use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
     use tauri::menu::{Menu, MenuItem};
+    use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 
     let show_item = MenuItem::with_id(app, "show", "Sebastianを開く", true, None::<&str>)?;
     let quit_item = MenuItem::with_id(app, "quit", "終了", true, None::<&str>)?;
