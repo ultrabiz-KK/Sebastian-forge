@@ -196,8 +196,46 @@
 - `light` / `dark` / `sepia` の 3 テーマ。
 - `document.documentElement` に `theme-dark` / `theme-sepia` クラスを付与。
 - CSS カスタムプロパティ（`--sidebar-bg` 等）でサイドバー色を制御。
+- タイトルバー用 CSS 変数（`--titlebar-*`）も同じ仕組みで 3 テーマ対応。
 
----
+### カスタムタイトルバー（2026-04-10 実装）
+
+Windows 標準タイトルバーをゴールド系のモダンなカスタムタイトルバーに置き換えた。
+
+#### 変更ファイル
+
+| ファイル | 変更内容 |
+|----------|---------|
+| `src-tauri/tauri.conf.json` | `decorations: false` でネイティブタイトルバーを非表示、`shadow: true` でウィンドウシャドウを維持 |
+| `src-tauri/capabilities/default.json` | ウィンドウ操作パーミッションを追加（下記参照） |
+| `src/components/layout/TitleBar.tsx` | カスタムタイトルバーコンポーネント（新規作成） |
+| `src/components/layout/MainLayout.tsx` | `<TitleBar />` を最上部に配置 |
+| `src/index.css` | タイトルバー用スタイル・CSS 変数を追加 |
+
+#### 追加 Tauri パーミッション（`capabilities/default.json`）
+
+Tauri v2 ではウィンドウ操作ごとに明示的な許可が必要。
+
+| パーミッション | 役割 |
+|---|---|
+| `core:window:allow-minimize` | 最小化 |
+| `core:window:allow-maximize` | 最大化 |
+| `core:window:allow-unmaximize` | 最大化解除 |
+| `core:window:allow-close` | ウィンドウを閉じる |
+| `core:window:allow-is-maximized` | 最大化状態の取得 |
+| `core:window:allow-start-dragging` | ドラッグ移動 |
+| `core:event:allow-listen` / `allow-unlisten` | ウィンドウリサイズイベント購読 |
+
+#### TitleBar コンポーネント仕様
+
+- **ドラッグ移動**: `data-tauri-drag-region` 属性でタイトルバー全体をドラッグ可能
+- **ダブルクリック最大化**: タイトルバー本体のダブルクリックで最大化トグル（macOS 風）
+- **最大化状態同期**: `useEffect` + `appWindow.onResized()` でリサイズイベントを購読し、最大/通常アイコンをリアルタイム同期
+- **ボタンのダブルクリック伝播防止**: 各操作ボタンの `onDoubleClick` で `stopPropagation()` し、誤動作を防止
+- **`appWindow` のスコープ**: モジュールスコープで一度だけ `getCurrentWindow()` を実行（レンダリングごとの再生成を防止）
+- **テーマ対応**: `--titlebar-*` CSS 変数でライト / ダーク / セピア 3 テーマに自動追従
+
+
 
 ## Rust バックエンド設計方針
 
