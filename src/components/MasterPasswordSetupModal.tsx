@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Lock, Eye, EyeOff, X, AlertCircle, CheckCircle, Trash2 } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
 import { getSetting, setSetting, SETTING_KEYS } from '../lib/settings';
-import { unlock } from '../lib/session';
+import { unlock, lock } from '../lib/session';
 
 interface Props {
   onClose: () => void;
@@ -125,6 +125,7 @@ export function MasterPasswordSetupModal({ onClose, onPasswordSet }: Props) {
     setLoading(true);
     try {
       await setSetting(SETTING_KEYS.MASTER_PASSWORD_HASH, '');
+      lock();
       setSuccess('マスターパスワードを削除しました。暗号化設定は復号できなくなります。');
       onPasswordSet?.();
       setTimeout(() => onClose(), 1500);
