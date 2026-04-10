@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { open } from '@tauri-apps/plugin-dialog';
 import { enable, disable, isEnabled } from '@tauri-apps/plugin-autostart';
@@ -118,6 +118,140 @@ const FEATURE_SETTINGS: { key: FeatureKey; label: string; formKey: keyof Setting
   { key: 'calendar_comment', label: 'カレンダーコメント', formKey: 'featureProviderCalendarComment', modelKey: 'featureModelCalendarComment' },
   { key: 'task_extract',   label: 'タスク抽出',       formKey: 'featureProviderTaskExtract',    modelKey: 'featureModelTaskExtract' },
 ];
+
+// ─── ショートカットキー入力コンポーネント ────────────────────────────
+
+/** ブラウザの KeyboardEvent.key をTauriショートカット形式のキー名に変換 */
+function normalizeTauriKey(e: React.KeyboardEvent): string {
+  const { key, code } = e;
+  // 単一アルファベット
+  if (/^[a-zA-Z]$/.test(key)) return key.toUpperCase();
+  // 数字キー（Shift同時押しで "!" 等になる場合も code から取得）
+  const digitMatch = code.match(/^Digit(\d)$/);
+  if (digitMatch) return digitMatch[1];
+  if (/^\d$/.test(key)) return key;
+  // ファンクションキー
+  if (/^F\d{1,2}$/.test(key)) return key;
+  // その他の特殊キー
+  const keyMap: Record<string, string> = {
+    ' ': 'Space',
+    'Enter': 'Return',
+    'Tab': 'Tab',
+    'Backspace': 'Backspace',
+    'Delete': 'Delete',
+    'Insert': 'Insert',
+    'Home': 'Home',
+    'End': 'End',
+    'PageUp': 'PageUp',
+    'PageDown': 'PageDown',
+    'ArrowUp': 'Up',
+    'ArrowDown': 'Down',
+    'ArrowLeft': 'Left',
+    'ArrowRight': 'Right',
+  };
+  return keyMap[key] ?? '';
+}
+
+/** キーバッジ（見た目だけの小コンポーネント） */
+function KeyBadge({ children }: { children: React.ReactNode }) {
+  return (
+    <kbd className="inline-flex items-center px-2 py-0.5 rounded border border-sebastian-border bg-white text-xs font-mono text-sebastian-text shadow-sm">
+      {children}
+    </kbd>
+  );
+}
+
+/** キャプチャ型ショートカット入力 */
+function ShortcutKeyInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [capturing, setCapturing] = useState(false);
+  const [liveKeys, setLiveKeys] = useState<string[]>([]);
+  const divRef = useRef<HTMLDivElement>(null);
+
+  const parts = value ? value.split('+') : [];
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (e.key === 'Escape') {
+      setCapturing(false);
+      setLiveKeys([]);
+      return;
+    }
+
+    const mods: string[] = [];
+    if (e.ctrlKey) mods.push('Ctrl');
+    if (e.altKey) mods.push('Alt');
+    if (e.shiftKey) mods.push('Shift');
+    if (e.metaKey) mods.push('Super');
+
+    // モディファイアキーのみの押下はプレビュー表示のみ
+    if (['Control', 'Alt', 'Shift', 'Meta'].includes(e.key)) {
+      setLiveKeys([...mods, '...']);
+      return;
+    }
+
+    const mainKey = normalizeTauriKey(e);
+    if (!mainKey) return;
+
+    onChange([...mods, mainKey].join('+'));
+    setCapturing(false);
+    setLiveKeys([]);
+  };
+
+  const handleKeyUp = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    // モディファイアキーが離されたときにプレビューを更新
+    if (!['Control', 'Alt', 'Shift', 'Meta'].includes(e.key)) return;
+    const mods: string[] = [];
+    if (e.ctrlKey && e.key !== 'Control') mods.push('Ctrl');
+    if (e.altKey && e.key !== 'Alt') mods.push('Alt');
+    if (e.shiftKey && e.key !== 'Shift') mods.push('Shift');
+    if (e.metaKey && e.key !== 'Meta') mods.push('Super');
+    setLiveKeys(mods.length > 0 ? [...mods, '...'] : []);
+  };
+
+  return (
+    <div
+      ref={divRef}
+      tabIndex={0}
+      role="button"
+      aria-label="ショートカットキーを設定"
+      className={`w-full bg-sebastian-parchment/50 border rounded-lg px-3 py-2 text-sm cursor-pointer select-none outline-none flex items-center flex-wrap gap-1 min-h-[38px] transition-colors ${
+        capturing
+          ? 'border-sebastian-gold ring-1 ring-sebastian-gold/30'
+          : 'border-sebastian-border hover:border-sebastian-gold/30 focus:border-sebastian-gold/50'
+      }`}
+      onClick={() => { setCapturing(true); divRef.current?.focus(); }}
+      onBlur={() => { setCapturing(false); setLiveKeys([]); }}
+      onKeyDown={handleKeyDown}
+      onKeyUp={handleKeyUp}
+    >
+      {capturing ? (
+        liveKeys.length > 0 ? (
+          liveKeys.map((k, i) => (
+            <span key={i} className="flex items-center gap-1">
+              {i > 0 && <span className="text-sebastian-lightgray text-xs">+</span>}
+              <KeyBadge>{k}</KeyBadge>
+            </span>
+          ))
+        ) : (
+          <span className="text-sebastian-lightgray italic">キーを押してください... (Escでキャンセル)</span>
+        )
+      ) : (
+        parts.length > 0 ? (
+          parts.map((k, i) => (
+            <span key={i} className="flex items-center gap-1">
+              {i > 0 && <span className="text-sebastian-lightgray text-xs">+</span>}
+              <KeyBadge>{k}</KeyBadge>
+            </span>
+          ))
+        ) : (
+          <span className="text-sebastian-lightgray italic">クリックして設定...</span>
+        )
+      )}
+    </div>
+  );
+}
 
 // ─── コンポーネント ──────────────────────────────────────────────
 
@@ -1128,14 +1262,11 @@ export default function Settings() {
           <CardHeading>操作・起動</CardHeading>
           <div className="space-y-2">
             <label className="block text-sm text-sebastian-gray">クイックメモ ショートカットキー</label>
-            <input
-              type="text"
-              className="w-full bg-sebastian-parchment/50 border border-sebastian-border rounded-lg px-3 py-2 text-sm outline-none focus:border-sebastian-gold/50 transition-colors"
-              placeholder="例: Ctrl+Shift+M"
+            <ShortcutKeyInput
               value={form.globalShortcut}
-              onChange={e => setF('globalShortcut', e.target.value)}
+              onChange={v => setF('globalShortcut', v)}
             />
-            <p className="text-xs text-sebastian-lightgray">キーの組み合わせを入力（例: Ctrl+Shift+M、Alt+F1）</p>
+            <p className="text-xs text-sebastian-lightgray">クリックしてキーを押すと登録されます（例: Ctrl+Shift+M）</p>
             {shortcutStatus === 'ok' && (
               <p className="text-xs text-green-600 flex items-center gap-1"><CheckCircle size={12} />ショートカットを登録しました</p>
             )}
