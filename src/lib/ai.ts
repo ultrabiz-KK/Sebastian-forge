@@ -83,7 +83,6 @@ interface AIProvider {
   callJson(system: string, user: string): Promise<string>;
   listModels(): Promise<ModelInfo[]>;
   testConnection(): Promise<{ ok: boolean; message: string }>;
-  withModelOverride(model: string): AIProvider;
 }
 
 // ─── モデルキャッシュ（TTL: 1時間） ─────────────────────────────
@@ -821,32 +820,6 @@ export const PRESET_PROVIDER_LIST = [
   { id: 'lmstudio',   name: 'LM Studio',     sub: 'ローカル' },
   { id: 'ollama',     name: 'Ollama',        sub: 'ローカル' },
 ] as const;
-
-// ─── モデル上書きラッパー ─────────────────────────────────────────
-
-function wrapProviderWithModel(base: AIProvider, modelId: string): AIProvider {
-  const originalGetConfig = (base as any).getConfig?.bind(base);
-  return {
-    id: base.id,
-    name: base.name,
-    callText: async (sys, usr) => {
-      const provider = await getProviderWithModel(base.id, modelId);
-      return provider.callText(sys, usr);
-    },
-    callJson: async (sys, usr) => {
-      const provider = await getProviderWithModel(base.id, modelId);
-      return provider.callJson(sys, usr);
-    },
-    listModels: () => base.listModels(),
-    testConnection: () => base.testConnection(),
-  };
-}
-
-async function getProviderWithModel(providerId: string, modelId: string): Promise<AIProvider> {
-  const provider = await getProvider(providerId);
-  (provider as any)._modelOverride = modelId;
-  return provider;
-}
 
 // ─── ファクトリ ──────────────────────────────────────────────────
 
