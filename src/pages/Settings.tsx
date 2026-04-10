@@ -7,7 +7,7 @@ import {
   Eye, EyeOff, Upload, Download, Clock, FileDown, Plus, Trash2, Pencil, X,
   Lock, Check,
 } from 'lucide-react';
-import { getSetting, setSetting, setEncryptedSetting, setEncryptedCustomProviders, getDecryptedSetting, SETTING_KEYS } from '../lib/settings';
+import { getSetting, setSetting, setEncryptedSetting, setEncryptedCustomProviders, getDecryptedSetting, SETTING_KEYS, decrypt } from '../lib/settings';
 import { isUnlocked, getState, type SessionDuration } from '../lib/session';
 import type { CustomProviderDef } from '../lib/settings';
 import { PageHeader, OrnateCard, CardHeading } from '../components/ClassicUI';
@@ -281,8 +281,8 @@ export default function Settings() {
         for (const p of customProvidersList) {
           if (p.apiKey && p.apiKey.startsWith('ENC:')) {
             try {
-              const decrypted = await getDecryptedSetting('__custom_' + p.id);
-              decryptedProviders.push({ ...p, apiKey: decrypted ?? p.apiKey });
+              const decrypted = await decrypt(p.apiKey);
+              decryptedProviders.push({ ...p, apiKey: decrypted });
             } catch {
               decryptedProviders.push(p);
             }

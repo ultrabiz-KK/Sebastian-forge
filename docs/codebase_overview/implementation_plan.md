@@ -235,6 +235,31 @@ Tauri v2 ではウィンドウ操作ごとに明示的な許可が必要。
 - **`appWindow` のスコープ**: モジュールスコープで一度だけ `getCurrentWindow()` を実行（レンダリングごとの再生成を防止）
 - **テーマ対応**: `--titlebar-*` CSS 変数でライト / ダーク / セピア 3 テーマに自動追従
 
+### AIProvider withModelOverride 実装（2026-04-10 完了）
+
+各プロバイダークラスに `withModelOverride` メソッドを実装。
+
+#### 変更内容
+
+| プロバイダー | 実装方法 |
+|-------------|---------|
+| `GeminiProvider` | 新規インスタンス作成後 `_modelOverride` 設定 |
+| `OllamaProvider` | 新規インスタンス作成後 `_modelOverride` 設定 |
+| `ClaudeProvider` | 新規インスタンス作成後 `_modelOverride` 設定 |
+| `OpenAIProvider` | 新規インスタンス作成後 `_modelOverride` 設定 |
+| `OpenAICompatibleProvider` | コンストラクタ引数でモデルオーバーライドを受け取る新インスタンス作成 |
+| `buildCustomProvider` | 内部関数でモデルオーバーライドを適用し、`withModelOverride` で再構築 |
+
+#### エラー握りつぶし解消
+
+空の `catch` ブロックに `console.error` でログ出力を追加。以下の箇所を修正:
+
+- `getCachedModels` / `setCachedModels` のキャッシュエラー
+- 各プロバイダーの `listModels` エラー（Gemini, Ollama, Claude, OpenAI, OpenAICompatible, カスタムプロバイダー）
+- `getProvider` のカスタムプロバイダーパースエラー
+- `getProviderForFeature` の機能別設定取得エラー
+- `listAllProviders` のカスタムプロバイダー取得エラー
+
 
 
 ## Rust バックエンド設計方針
@@ -437,3 +462,69 @@ fn validate_path(path: &str) -> Result<(), String> {
 - パスに `..`（ParentDir）が含まれる場合、`Err("Access denied")` を返す
 - 新しいクレートは追加せず、標準ライブラリ `std::path::Component` を使用
 - 日報/週報保存先・同期フォルダへの正規操作には影響なし
+## Phase 2 追加修正: 暗号化フロー・カスタムプロバイダー復号（2026-04-10）
+
+### SR-3: 暗号化失敗時の平文フォールバックを除去
+
+`src/lib/settings.ts` の `setEncryptedSetting` 関数から、暗号化失敗時の平文保存フォールバックを削除。
+
+**修正前:**
+```typescript
+export async function setEncryptedSetting(key: string, value: string): Promise<void> {
+  if (shouldEncrypt(key) && value && isUnlocked()) {
+    try {
+      const encrypted = await encrypt(value);
+      await setSetting(key, encrypted);
+      return;
+    } catch {
+      // 暗号化失敗時は平文保存（フォールバック）  ← セキュリティリスク
+    }
+  }
+  await setSetting(key, value);
+}
+```
+
+**修正後:**
+```typescript
+export async function setEncryptedSetting(key: string, value: string): Promise<void> {
+  if (shouldEncrypt(key) && value) {
+    if (!isUnlocked()) {
+      throw new Error('Session is locked. Unlock to save encrypted settings.');
+    }
+    const encrypted = await encrypt(value);
+    await setSetting(key, encrypted);
+    return;
+  }
+  await setSetting(key, value);
+}
+```
+
+**変更点:**
+- セッションがロックされている場合、明示的にエラーをスロー
+- 暗号化失敗時は平文保存ではなく例外を発生させる
+- セキュリティ観点: 暗号化すべき値を平文で保存することを防止
+
+### SR-5: カスタムプロバイダーのAPIキーが復号されない問題を修正
+
+`src/pages/Settings.tsx` のカスタムプロバイダー読み込み時の復号ロジックを修正。
+
+**修正前:**
+```typescript
+const decrypted = await getDecryptedSetting('__custom_' + p.id);  // 存在しないキーを指定
+decryptedProviders.push({ ...p, apiKey: decrypted ?? p.apiKey });
+```
+
+**修正後:**
+```typescript
+const decrypted = await decrypt(p.apiKey);  // 直接暗号化された値を復号
+decryptedProviders.push({ ...p, apiKey: decrypted });
+```
+
+**原因:**
+- カスタムプロバイダーのAPIキーは `SETTING_KEYS.CUSTOM_PROVIDERS` のJSON配列内に `ENC:` 形式で保存される
+- `getDecryptedSetting` は独立した設定キー用の関数であり、JSON内の値には使用できない
+- `decrypt` 関数（`sessionDecrypt` のエクスポート）を直接使用する必要がある
+
+**修正ファイル:**
+- `src/lib/settings.ts`: `setEncryptedSetting` のフォールバック削除
+- `src/pages/Settings.tsx`: インポートに `decrypt` を追加、カスタムプロバイダー復号ロジックを修正
