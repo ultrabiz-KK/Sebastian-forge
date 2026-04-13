@@ -73,6 +73,42 @@ export async function s3Pull(): Promise<void> {
   window.location.reload();
 }
 
+export interface ConflictDetails {
+  result: ConflictResult;
+  /** ローカルDBのUnix秒タイムスタンプ */
+  localMtime: number;
+  /** S3オブジェクトのUnix秒タイムスタンプ（存在しない場合はnull） */
+  remoteMtime: number | null;
+}
+
+/**
+ * タイムスタンプ情報付きで競合を検出する（モーダル表示用）。
+ * S3オブジェクトが存在しない場合は result='local_newer', remoteMtime=null を返す。
+ */
+export async function checkConflictDetails(): Promise<ConflictDetails> {
+  const config = await getS3Config();
+  if (!config) throw new Error('S3設定が未完了です');
+
+  const dbPath = await invoke<string>('get_db_path');
+
+  const localMtime = await invoke<number | null>('get_file_mtime', { path: dbPath });
+  if (localMtime === null) throw new Error('ローカルDBのタイムスタンプを取得できません');
+
+  let remoteMtime: number | null = null;
+  try {
+    remoteMtime = await invoke<number>('s3_get_object_mtime', { config, s3Key: DB_FILENAME });
+  } catch {
+    return { result: 'local_newer', localMtime, remoteMtime: null };
+  }
+
+  let result: ConflictResult;
+  if (localMtime > remoteMtime) result = 'local_newer';
+  else if (localMtime < remoteMtime) result = 'remote_newer';
+  else result = 'same';
+
+  return { result, localMtime, remoteMtime };
+}
+
 /**
  * ローカルDBとS3オブジェクトのタイムスタンプを比較する。
  * S3オブジェクトが存在しない場合は 'local_newer' を返す。

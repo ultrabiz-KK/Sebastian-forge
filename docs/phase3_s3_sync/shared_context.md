@@ -1,7 +1,7 @@
 # Phase 3: 共有コンテキスト
 
 ## ステータス
-- **フェーズ**: T3-1・T3-2・IMP-1完了、T3-3以降実装待ち
+- **フェーズ**: T3-1〜T3-4・T3-6・IMP-1完了。T3-5（リアルタイム同期フック）・T3-7（Settings UI）・T3-8（権限設定）残り
 - **前提**: Phase 2完了（S3接続情報の暗号化保存のため）
 - **最終更新**: 2026-04-13
 
@@ -26,6 +26,25 @@
 - **互換性注意**: 既存の暗号化済みAPIキーはデコード不可になる。
   再設定が必要。T3-3以降のUI実装時に案内文を追加すること。
 
+### T3-3: s3sync.ts（完了）
+- `getS3Config` / `s3Push` / `s3Pull` / `checkConflict` / `checkConflictDetails` 実装済み
+- `checkConflictDetails()` は `{ result, localMtime, remoteMtime }` を返す（モーダル表示用）
+
+### T3-4: 起動時競合解決UI（完了）
+- `src/components/S3ConflictModal.tsx` 新規作成
+  - `remote_newer` 時のみ表示。ローカル・S3タイムスタンプを比較表示
+  - 「ローカルを使用（Push）」「クラウドを使用（Pull）」ボタン
+  - 不可逆操作の警告表示あり
+- `App.tsx`: アンロック後に `checkConflictDetails()` を呼び競合検出
+
+### T3-6: バッチ同期タイマー（完了）
+- `App.tsx` の `AppRoutes` 内 `useEffect` に `setInterval` 追加
+- `s3_sync_interval` 設定（1h/3h/6h）に応じてタイマー起動
+- `realtime_only` または設定なしの場合はタイマー不起動
+- 失敗はサイレント（`console.warn` のみ）
+- `settings.ts` に `S3_SYNC_INTERVAL` / `LAST_S3_SYNC_AT` キー追加済み
+
 ## エージェント間連絡事項
 
-次エージェントへ: T3-3 (s3sync.ts) から着手可能。Rustコマンドのシグネチャは上記の通り。
+次エージェントへ: T3-5（リアルタイム同期フック、DailyReport.tsx）から着手可能。
+T3-7（Settings.tsx S3設定UI）・T3-8（Tauri権限設定）も残り。

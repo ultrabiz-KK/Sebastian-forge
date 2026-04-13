@@ -17,6 +17,8 @@ import { selectDb } from './lib/db';
 import { loadAndApplyTheme } from './lib/theme';
 import { isUnlocked } from './lib/session';
 import { UnlockModal } from './components/UnlockModal';
+import { S3ConflictModal } from './components/S3ConflictModal';
+import { getS3Config, s3Push, checkConflictDetails, type ConflictDetails } from './lib/s3sync';
 
 function AppRoutes() {
   const navigate = useNavigate();
@@ -106,6 +108,43 @@ function AppRoutes() {
     return () => clearInterval(interval);
   }, [navigate]);
 
+  // T3-6: バッチ同期タイマー（S3モード時のみ）
+  useEffect(() => {
+    let intervalId: ReturnType<typeof setInterval> | null = null;
+
+    async function setupBatchSync() {
+      const syncMode = await getSetting(SETTING_KEYS.SYNC_MODE);
+      if (syncMode !== 's3') return;
+
+      const intervalSetting = await getSetting(SETTING_KEYS.S3_SYNC_INTERVAL);
+      // realtime_onlyまたは未設定の場合はバッチタイマー不要
+      if (!intervalSetting || intervalSetting === 'realtime_only') return;
+
+      const intervalMs =
+        intervalSetting === '1h' ? 60 * 60_000 :
+        intervalSetting === '3h' ? 3 * 60 * 60_000 :
+        intervalSetting === '6h' ? 6 * 60 * 60_000 : null;
+
+      if (!intervalMs) return;
+
+      intervalId = setInterval(async () => {
+        try {
+          const config = await getS3Config();
+          if (!config) return;
+          await s3Push();
+        } catch (e) {
+          console.warn('バッチS3同期失敗:', e);
+        }
+      }, intervalMs);
+    }
+
+    setupBatchSync().catch(console.warn);
+
+    return () => {
+      if (intervalId !== null) clearInterval(intervalId);
+    };
+  }, []);
+
   return (
     <Routes>
       <Route path="/" element={<MainLayout />}>
@@ -124,6 +163,7 @@ function AppRoutes() {
 export default function App() {
   const [showUnlock, setShowUnlock] = useState(false);
   const [initialized, setInitialized] = useState(false);
+  const [conflictDetails, setConflictDetails] = useState<ConflictDetails | null>(null);
 
   useEffect(() => {
     async function checkPassword() {
@@ -136,12 +176,43 @@ export default function App() {
     checkPassword().catch(console.error);
   }, []);
 
+  // T3-4: アンロック後（またはパスワード未設定時）にS3競合チェック
+  useEffect(() => {
+    if (!initialized || showUnlock) return;
+
+    async function checkS3Conflict() {
+      try {
+        const syncMode = await getSetting(SETTING_KEYS.SYNC_MODE);
+        if (syncMode !== 's3') return;
+
+        const details = await checkConflictDetails();
+        if (details.result === 'remote_newer') {
+          setConflictDetails(details);
+        }
+      } catch (e) {
+        // オフライン時など接続失敗はサイレントスキップ
+        console.warn('起動時S3競合チェック失敗:', e);
+      }
+    }
+
+    checkS3Conflict();
+  }, [initialized, showUnlock]);
+
   if (!initialized) {
     return null;
   }
 
   if (showUnlock) {
     return <UnlockModal onUnlock={() => setShowUnlock(false)} />;
+  }
+
+  if (conflictDetails) {
+    return (
+      <S3ConflictModal
+        details={conflictDetails}
+        onResolved={() => setConflictDetails(null)}
+      />
+    );
   }
 
   return <AppRoutes />;
