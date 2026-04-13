@@ -2,8 +2,9 @@ import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import { AlertCircle } from 'lucide-react';
-import { executeDb, selectDb } from '../lib/db';
+import { executeDb } from '../lib/db';
 import { PageHeader } from '../components/ClassicUI';
+import { loadDailyMemoContent, loadDailyReportExists } from '../lib/queries';
 
 export default function Memo() {
   const [content, setContent] = useState('');
@@ -15,23 +16,17 @@ export default function Memo() {
   useEffect(() => {
     async function loadMemo() {
       try {
-        const [rows, reportRows] = await Promise.all([
-          selectDb<{ content: string }>(
-            'SELECT content FROM daily_memos WHERE date = ?',
-            [today]
-          ),
-          selectDb<{ id: number }>(
-            'SELECT id FROM reports_daily WHERE date = ?',
-            [today]
-          ),
+        const [memo, reportExistsResult] = await Promise.all([
+          loadDailyMemoContent(today),
+          loadDailyReportExists(today),
         ]);
-        if (rows.length > 0) {
-          setContent(rows[0].content);
+        if (memo !== null) {
+          setContent(memo);
           setSaveStatus('saved');
         } else {
           setSaveStatus('idle');
         }
-        setReportExists(reportRows.length > 0);
+        setReportExists(reportExistsResult);
       } catch (err) {
         console.error(err);
       }

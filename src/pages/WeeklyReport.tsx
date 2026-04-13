@@ -5,8 +5,9 @@ import { invoke } from '@tauri-apps/api/core';
 import { Sparkles, CheckCircle, AlertCircle, ChevronLeft, ChevronRight, Pencil } from 'lucide-react';
 import { selectDb, executeDb } from '../lib/db';
 import { OrnateCard, CardHeading } from '../components/ClassicUI';
-import { generateWeeklyReport, type TaskLogEntry, type TaskEntry } from '../lib/ai';
+import { generateWeeklyReport, type TaskLogEntry } from '../lib/ai';
 import { getSetting, SETTING_KEYS } from '../lib/settings';
+import { loadAllTasks } from '../lib/queries';
 import { GeneratingAnimation } from '../components/GeneratingAnimation';
 
 type PageState = 'idle' | 'generating' | 'draft' | 'saving' | 'saved';
@@ -79,7 +80,7 @@ export default function WeeklyReport() {
           "SELECT task_id, action_type, before_json, after_json, actor_type, note, created_at FROM task_logs WHERE DATE(created_at) BETWEEN ? AND ? ORDER BY created_at ASC",
           [weekStartStr, weekEndStr]
         ),
-        selectDb<TaskEntry>('SELECT id, title, status, priority, category FROM tasks ORDER BY created_at DESC'),
+        loadAllTasks(),
       ]);
 
       const generated = await generateWeeklyReport({

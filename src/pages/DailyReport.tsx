@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { invoke } from '@tauri-apps/api/core';
-import { Sparkles, CheckCircle, AlertCircle, Pencil } from 'lucide-react';
+import { Sparkles, CheckCircle, AlertCircle, Pencil, Loader2 } from 'lucide-react';
 import { selectDb, executeDb } from '../lib/db';
 import { PageHeader, OrnateCard, CardHeading } from '../components/ClassicUI';
-import { generateDailyReport, extractTaskCandidates, type TaskLogEntry, type TaskEntry, type TaskCandidate } from '../lib/ai';
+import { generateDailyReport, extractTaskCandidates, type TaskLogEntry, type TaskCandidate } from '../lib/ai';
 import { getSetting, SETTING_KEYS } from '../lib/settings';
+import { s3Push } from '../lib/s3sync';
+import { loadDailyMemoContent, loadAllTasks } from '../lib/queries';
 import { TaskCandidatesPanel } from '../components/TaskCandidatesPanel';
 import { GeneratingAnimation } from '../components/GeneratingAnimation';
 
@@ -22,22 +24,29 @@ export default function DailyReport() {
   const [candidateState, setCandidateState] = useState<CandidateState>('idle');
   const [candidates, setCandidates] = useState<TaskCandidate[]>([]);
   const [memoContent, setMemoContent] = useState('');
+  const [s3Uploading, setS3Uploading] = useState(false);
+  const [s3ErrorMsg, setS3ErrorMsg] = useState('');
 
   const today = format(new Date(), 'yyyy-MM-dd');
 
   useEffect(() => {
     async function init() {
-      const [reportRows, memoRows, path] = await Promise.all([
-        selectDb<{ content: string }>('SELECT content FROM reports_daily WHERE date = ?', [today]),
-        selectDb<{ content: string }>('SELECT content FROM daily_memos WHERE date = ?', [today]),
-        getSetting(SETTING_KEYS.DAILY_REPORT_PATH),
-      ]);
-      if (reportRows.length > 0) {
-        setSavedContent(reportRows[0].content);
-        setPageState('saved');
+      try {
+        const [reportRows, memo, path] = await Promise.all([
+          selectDb<{ content: string }>('SELECT content FROM reports_daily WHERE date = ?', [today]),
+          loadDailyMemoContent(today),
+          getSetting(SETTING_KEYS.DAILY_REPORT_PATH),
+        ]);
+        if (reportRows.length > 0) {
+          setSavedContent(reportRows[0].content);
+          setPageState('saved');
+        }
+        setMemoContent(memo ?? '');
+        setSavePath(path ?? '');
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e);
+        setErrorMsg(`データの読み込みに失敗しました: ${msg}`);
       }
-      setMemoContent(memoRows[0]?.content ?? '');
-      setSavePath(path ?? '');
     }
     init();
   }, [today]);
@@ -46,21 +55,20 @@ export default function DailyReport() {
     setPageState('generating');
     setErrorMsg('');
     try {
-      const [memoRows, taskLogs, tasks] = await Promise.all([
-        selectDb<{ content: string }>('SELECT content FROM daily_memos WHERE date = ?', [today]),
+      const [memo, taskLogs, tasks] = await Promise.all([
+        loadDailyMemoContent(today),
         selectDb<TaskLogEntry>(
           'SELECT task_id, action_type, before_json, after_json, actor_type, note, created_at FROM task_logs WHERE DATE(created_at) = ? ORDER BY created_at ASC',
           [today]
         ),
-        selectDb<TaskEntry>('SELECT id, title, status, priority, category FROM tasks ORDER BY created_at DESC'),
+        loadAllTasks(),
       ]);
 
-      const memo = memoRows[0]?.content ?? '';
-      setMemoContent(memo);
+      setMemoContent(memo ?? '');
 
       const generated = await generateDailyReport({
         date: today,
-        memoContent: memo,
+        memoContent: memo ?? '',
         taskLogs,
         activeTasks: tasks,
       });
@@ -95,6 +103,24 @@ export default function DailyReport() {
       setPageState('saved');
       setCandidateState('idle');
       setCandidates([]);
+
+      // T3-5: S3リアルタイム同期（S3モード有効 かつ リアルタイム設定の場合のみ）
+      const [syncMode, syncInterval] = await Promise.all([
+        getSetting(SETTING_KEYS.SYNC_MODE),
+        getSetting(SETTING_KEYS.S3_SYNC_INTERVAL),
+      ]);
+      if (syncMode === 's3' && (syncInterval === 'realtime_only' || syncInterval === null)) {
+        setS3Uploading(true);
+        setS3ErrorMsg('');
+        try {
+          await s3Push();
+        } catch (e: unknown) {
+          const msg = e instanceof Error ? e.message : String(e);
+          setS3ErrorMsg(`S3アップロード失敗: ${msg}`);
+        } finally {
+          setS3Uploading(false);
+        }
+      }
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
       setErrorMsg(`保存に失敗しました: ${msg}`);
@@ -106,7 +132,7 @@ export default function DailyReport() {
     setCandidateState('extracting');
     setErrorMsg('');
     try {
-      const tasks = await selectDb<TaskEntry>('SELECT id, title, status, priority, category FROM tasks ORDER BY created_at DESC');
+      const tasks = await loadAllTasks();
       const result = await extractTaskCandidates(memoContent, tasks, today);
       setCandidates(result);
       setCandidateState('ready');
@@ -129,6 +155,26 @@ export default function DailyReport() {
         <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-700">
           <AlertCircle size={16} className="flex-shrink-0 mt-0.5" />
           <span className="whitespace-pre-wrap">{errorMsg}</span>
+        </div>
+      )}
+
+      {s3ErrorMsg && (
+        <div className="flex items-start gap-2 bg-orange-50 border border-orange-200 rounded-xl p-3 text-sm text-orange-700">
+          <AlertCircle size={15} className="flex-shrink-0 mt-0.5" />
+          <span>{s3ErrorMsg}</span>
+          <button
+            onClick={() => setS3ErrorMsg('')}
+            className="ml-auto text-orange-400 hover:text-orange-600 transition-colors text-xs"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {s3Uploading && (
+        <div className="flex items-center gap-2 text-xs text-sebastian-lightgray">
+          <Loader2 size={13} className="animate-spin" />
+          S3へアップロード中...
         </div>
       )}
 
