@@ -63,6 +63,7 @@ export const SETTING_KEYS = {
   S3_PREFIX: 's3_prefix',
   // S3同期タイミング
   S3_SYNC_INTERVAL: 's3_sync_interval', // 'realtime_only' | '1h' | '3h' | '6h'
+  LAST_S3_SYNC_AT: 'last_s3_sync_at',
   // マスターパスワード
   MASTER_PASSWORD_HASH: 'master_password_hash',
   SESSION_DURATION: 'session_duration',
