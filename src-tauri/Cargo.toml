@@ -33,6 +33,8 @@ hmac = "0.12"
 sha2 = "0.10"
 base64 = "0.22"
 rand = "0.8"
+aws-sdk-s3 = "1"
+aws-config = { version = "1", features = ["behavior-version-latest"] }
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-autostart = "2"

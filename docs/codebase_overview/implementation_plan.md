@@ -290,10 +290,14 @@ Tauri v2 ではウィンドウ操作ごとに明示的な許可が必要。
 | `verify_password` | bcrypt ハッシュとパスワードを照合 |
 | `encrypt_value` | AES-256-GCM + PBKDF2 で平文を暗号化し `base64(salt\|\|iv\|\|ciphertext)` を返す |
 | `decrypt_value` | `encrypt_value` の出力を復号。パスワード誤り時は `Err` を返す |
+| `s3_upload_file` | ローカルファイルをS3にアップロード（PutObject） |
+| `s3_download_file` | S3からローカルにダウンロード（GetObject） |
+| `s3_get_object_mtime` | S3オブジェクトのLastModifiedをUnix秒で返す（HeadObject） |
+| `s3_test_connection` | ListObjectsV2（1件）でS3疎通確認 |
 
-### 暗号化実装詳細（T2-2）
+### 暗号化実装詳細（T2-2 + IMP-1）
 
-- **キー導出**: PBKDF2-HMAC-SHA256、イテレーション 100,000 回、32 バイトキー
+- **キー導出**: PBKDF2-HMAC-SHA256、イテレーション **210,000 回**（OWASP 2023推奨値）、32 バイトキー
 - **ソルト**: 16 バイト（毎回 `rand::thread_rng()` でランダム生成）
 - **IV/Nonce**: 12 バイト（毎回 `rand::thread_rng()` でランダム生成）
 - **出力フォーマット**: `salt(16B) || iv(12B) || ciphertext` を Base64 エンコード

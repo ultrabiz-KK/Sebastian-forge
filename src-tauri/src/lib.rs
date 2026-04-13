@@ -7,9 +7,16 @@ use aes_gcm::{
     aead::{Aead, KeyInit},
     Aes256Gcm, Key, Nonce,
 };
+use aws_config::BehaviorVersion;
+use aws_sdk_s3::{
+    config::{Credentials, Region},
+    primitives::ByteStream,
+    Client as S3Client,
+};
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 use pbkdf2::pbkdf2_hmac;
 use rand::RngCore;
+use serde::Deserialize;
 use sha2::Sha256;
 
 fn validate_path(path: &str) -> Result<(), String> {
@@ -92,7 +99,8 @@ fn encrypt_value(plaintext: String, password: String) -> Result<String, String> 
     rand::thread_rng().fill_bytes(&mut iv);
 
     let mut key_bytes = [0u8; 32];
-    pbkdf2_hmac::<Sha256>(password.as_bytes(), &salt, 100_000, &mut key_bytes);
+    // OWASP 2023推奨: PBKDF2-SHA256は最低210,000回
+    pbkdf2_hmac::<Sha256>(password.as_bytes(), &salt, 210_000, &mut key_bytes);
 
     let key = Key::<Aes256Gcm>::from_slice(&key_bytes);
     let cipher = Aes256Gcm::new(key);
@@ -124,7 +132,8 @@ fn decrypt_value(ciphertext: String, password: String) -> Result<String, String>
     let enc_bytes = &combined[28..];
 
     let mut key_bytes = [0u8; 32];
-    pbkdf2_hmac::<Sha256>(password.as_bytes(), salt, 100_000, &mut key_bytes);
+    // OWASP 2023推奨: PBKDF2-SHA256は最低210,000回
+    pbkdf2_hmac::<Sha256>(password.as_bytes(), salt, 210_000, &mut key_bytes);
 
     let key = Key::<Aes256Gcm>::from_slice(&key_bytes);
     let cipher = Aes256Gcm::new(key);
@@ -146,6 +155,100 @@ fn get_file_mtime(path: String) -> Option<u64> {
         .and_then(|m| m.modified().ok())
         .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
         .map(|d| d.as_secs())
+}
+
+#[derive(Deserialize)]
+struct S3Config {
+    endpoint: String,
+    region: String,
+    bucket: String,
+    access_key: String,
+    secret_key: String,
+    prefix: String,
+}
+
+async fn build_s3_client(config: &S3Config) -> S3Client {
+    let creds = Credentials::new(
+        &config.access_key,
+        &config.secret_key,
+        None,
+        None,
+        "sebastian",
+    );
+    let aws_cfg = aws_config::defaults(BehaviorVersion::latest())
+        .endpoint_url(&config.endpoint)
+        .region(Region::new(config.region.clone()))
+        .credentials_provider(creds)
+        .load()
+        .await;
+    S3Client::new(&aws_cfg)
+}
+
+#[tauri::command]
+async fn s3_upload_file(config: S3Config, local_path: String, s3_key: String) -> Result<(), String> {
+    validate_path(&local_path)?;
+    let client = build_s3_client(&config).await;
+    let body = ByteStream::from_path(&local_path).await.map_err(|e| e.to_string())?;
+    let key = format!("{}{}", config.prefix, s3_key);
+    client
+        .put_object()
+        .bucket(&config.bucket)
+        .key(&key)
+        .body(body)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+async fn s3_download_file(config: S3Config, s3_key: String, local_path: String) -> Result<(), String> {
+    validate_path(&local_path)?;
+    let client = build_s3_client(&config).await;
+    let key = format!("{}{}", config.prefix, s3_key);
+    let output = client
+        .get_object()
+        .bucket(&config.bucket)
+        .key(&key)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    let bytes = output.body.collect().await.map_err(|e| e.to_string())?.into_bytes();
+    let dest = Path::new(&local_path);
+    if let Some(parent) = dest.parent() {
+        std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
+    std::fs::write(dest, bytes).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn s3_get_object_mtime(config: S3Config, s3_key: String) -> Result<i64, String> {
+    let client = build_s3_client(&config).await;
+    let key = format!("{}{}", config.prefix, s3_key);
+    let output = client
+        .head_object()
+        .bucket(&config.bucket)
+        .key(&key)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    let last_modified = output
+        .last_modified()
+        .ok_or_else(|| "LastModified not available".to_string())?;
+    Ok(last_modified.secs())
+}
+
+#[tauri::command]
+async fn s3_test_connection(config: S3Config) -> Result<(), String> {
+    let client = build_s3_client(&config).await;
+    client
+        .list_objects_v2()
+        .bucket(&config.bucket)
+        .max_keys(1)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -251,7 +354,11 @@ pub fn run() {
             hash_password,
             verify_password,
             encrypt_value,
-            decrypt_value
+            decrypt_value,
+            s3_upload_file,
+            s3_download_file,
+            s3_get_object_mtime,
+            s3_test_connection
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
