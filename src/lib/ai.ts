@@ -83,6 +83,7 @@ interface AIProvider {
   callJson(system: string, user: string): Promise<string>;
   listModels(): Promise<ModelInfo[]>;
   testConnection(): Promise<{ ok: boolean; message: string }>;
+  withModelOverride(model: string): AIProvider;
 }
 
 // ─── モデルキャッシュ（TTL: 1時間） ─────────────────────────────

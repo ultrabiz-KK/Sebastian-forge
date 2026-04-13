@@ -360,6 +360,8 @@ settings に butler_briefing として JSON キャッシュ保存
 
 ### DB 同期フロー
 
+#### フォルダ同期（`sync_mode: 'folder'`）
+
 ```
 Settings.tsx: 同期フォルダを指定
        ↓
@@ -371,6 +373,33 @@ Pull: lib/sync.ts: pullSync()
   ├── 現在の DB を自動バックアップ
   └── 同期フォルダの DB を上書きコピー → window.location.reload()
 ```
+
+#### S3同期（`sync_mode: 's3'`）— T3-3 実装済
+
+```
+Settings.tsx: S3設定（endpoint/region/bucket/access_key/secret_key/prefix）を指定
+       ↓
+checkConflict(): lib/s3sync.ts
+  ├── invoke('get_file_mtime', localDbPath) → localMtime
+  ├── invoke('s3_get_object_mtime', s3Config, 'sebastian.db') → remoteMtime
+  └── 比較 → 'local_newer' | 'remote_newer' | 'same'
+       ↓
+Push: lib/s3sync.ts: s3Push()
+  ├── setSetting(LAST_SYNC_AT, now)
+  ├── closeDb()
+  └── invoke('s3_upload_file', s3Config, dbPath, 'sebastian.db')
+       ↓
+Pull: lib/s3sync.ts: s3Pull()
+  ├── closeDb()
+  ├── invoke('copy_file', dbPath → backup_yyyyMMdd_HHmmss.db)
+  ├── invoke('s3_download_file', s3Config, 'sebastian.db', dbPath)
+  └── window.location.reload()
+```
+
+**S3設定キー**（`ENCRYPTED_KEYS` に `S3_ACCESS_KEY` / `S3_SECRET_KEY` 追加済み）:
+- `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_PREFIX`
+- `S3_ACCESS_KEY` (暗号化保存), `S3_SECRET_KEY` (暗号化保存)
+- `SYNC_MODE`: `'folder' | 's3' | 'none'`
 
 ---
 

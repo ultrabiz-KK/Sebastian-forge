@@ -106,6 +106,14 @@ BUTLER_BRIEFING      = 'butler_briefing'    // JSON キャッシュ
 THEME                = 'theme'              // 'light'|'dark'|'sepia'
 SYNC_FOLDER          = 'sync_folder'
 LAST_SYNC_AT         = 'last_sync_at'       // ISO 文字列
+SYNC_MODE            = 'sync_mode'          // 'folder'|'s3'|'none'
+// S3同期設定（T3-3追加）
+S3_ENDPOINT          = 's3_endpoint'
+S3_REGION            = 's3_region'
+S3_BUCKET            = 's3_bucket'
+S3_ACCESS_KEY        = 's3_access_key'      // 暗号化保存（ENCRYPTED_KEYS）
+S3_SECRET_KEY        = 's3_secret_key'      // 暗号化保存（ENCRYPTED_KEYS）
+S3_PREFIX            = 's3_prefix'
 ```
 
 ---
