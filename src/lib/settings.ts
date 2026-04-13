@@ -52,6 +52,15 @@ export const SETTING_KEYS = {
   THEME: 'theme',
   SYNC_FOLDER: 'sync_folder',
   LAST_SYNC_AT: 'last_sync_at',
+  // 同期モード
+  SYNC_MODE: 'sync_mode', // 'folder' | 's3' | 'none'
+  // S3同期設定
+  S3_ENDPOINT: 's3_endpoint',
+  S3_REGION: 's3_region',
+  S3_BUCKET: 's3_bucket',
+  S3_ACCESS_KEY: 's3_access_key',
+  S3_SECRET_KEY: 's3_secret_key',
+  S3_PREFIX: 's3_prefix',
   // マスターパスワード
   MASTER_PASSWORD_HASH: 'master_password_hash',
   SESSION_DURATION: 'session_duration',
@@ -64,6 +73,8 @@ export const ENCRYPTED_KEYS = [
   SETTING_KEYS.GROQ_API_KEY,
   SETTING_KEYS.OPENROUTER_API_KEY,
   SETTING_KEYS.NANOGPT_API_KEY,
+  SETTING_KEYS.S3_ACCESS_KEY,
+  SETTING_KEYS.S3_SECRET_KEY,
 ] as const;
 
 export async function getSetting(key: string): Promise<string | null> {
