@@ -61,6 +61,8 @@ export const SETTING_KEYS = {
   S3_ACCESS_KEY: 's3_access_key',
   S3_SECRET_KEY: 's3_secret_key',
   S3_PREFIX: 's3_prefix',
+  // S3同期タイミング
+  S3_SYNC_INTERVAL: 's3_sync_interval', // 'realtime_only' | '1h' | '3h' | '6h'
   // マスターパスワード
   MASTER_PASSWORD_HASH: 'master_password_hash',
   SESSION_DURATION: 'session_duration',

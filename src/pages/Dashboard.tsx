@@ -4,11 +4,12 @@ import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import { selectDb } from '../lib/db';
 import { getSetting, SETTING_KEYS } from '../lib/settings';
-import { ArrowRight, FileText, Pin } from 'lucide-react';
+import { ArrowRight, FileText, Pin, AlertCircle } from 'lucide-react';
 import { MorningBriefingModal } from '../components/MorningBriefingModal';
 import { OrnateCard, CardHeading } from '../components/ClassicUI';
 import { TaskPeekModal } from '../components/TaskPeekModal';
 import { PRIORITY_COLOR, PRIORITY_LABEL } from '../lib/constants';
+import { loadDailyMemoContent, loadDailyReportExists } from '../lib/queries';
 
 interface TaskSummary {
   id: number;
@@ -35,6 +36,7 @@ export default function Dashboard() {
   const [reportExists, setReportExists] = useState(false);
   const [showBriefing, setShowBriefing] = useState(false);
   const [peekTaskId, setPeekTaskId] = useState<number | null>(null);
+  const [loadError, setLoadError] = useState('');
 
   const today = format(new Date(), 'yyyy-MM-dd');
   const todayLabel = format(new Date(), 'M月d日（E）', { locale: ja });
@@ -42,14 +44,11 @@ export default function Dashboard() {
   useEffect(() => {
     async function loadStats() {
       try {
-        const [countResult, memoResult, todayTaskResult, highResult, reportResult, pinnedResult, categoryResult] = await Promise.all([
+        const [countResult, memo, todayTaskResult, highResult, reportExistsResult, pinnedResult, categoryResult] = await Promise.all([
           selectDb<{ count: number }>(
             "SELECT COUNT(*) as count FROM tasks WHERE status != 'done' AND archived = 0"
           ),
-          selectDb<{ content: string }>(
-            'SELECT content FROM daily_memos WHERE date = ?',
-            [today]
-          ),
+          loadDailyMemoContent(today),
           selectDb<TaskSummary>(
             "SELECT id, title, status, priority, due_date FROM tasks WHERE due_date = ? AND status != 'done' AND archived = 0 ORDER BY priority DESC",
             [today]
@@ -57,10 +56,7 @@ export default function Dashboard() {
           selectDb<TaskSummary>(
             "SELECT id, title, status, priority, due_date FROM tasks WHERE priority = 'high' AND status != 'done' AND archived = 0 ORDER BY created_at DESC LIMIT 5",
           ),
-          selectDb<{ id: number }>(
-            'SELECT id FROM reports_daily WHERE date = ?',
-            [today]
-          ),
+          loadDailyReportExists(today),
           selectDb<TaskSummary>(
             "SELECT id, title, status, priority, due_date FROM tasks WHERE pinned = 1 AND archived = 0 AND status != 'done' ORDER BY priority DESC, due_date ASC"
           ),
@@ -78,14 +74,15 @@ export default function Dashboard() {
         ]);
 
         setTodoCount(countResult[0]?.count ?? 0);
-        setMemoLength(memoResult[0]?.content?.length ?? null);
+        setMemoLength(memo !== null ? memo.length : null);
         setTodayTasks(todayTaskResult);
         setHighPriorityTasks(highResult);
-        setReportExists(reportResult.length > 0);
+        setReportExists(reportExistsResult);
         setPinnedTasks(pinnedResult);
         setCategorySummary(categoryResult);
       } catch (e) {
         console.error('Failed to load stats', e);
+        setLoadError('データの読み込みに失敗しました。アプリを再起動してください。');
       }
     }
     loadStats();
@@ -112,6 +109,13 @@ export default function Dashboard() {
       )}
       {peekTaskId !== null && (
         <TaskPeekModal taskId={peekTaskId} onClose={() => setPeekTaskId(null)} />
+      )}
+
+      {loadError && (
+        <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-700">
+          <AlertCircle size={16} className="flex-shrink-0 mt-0.5" />
+          <span>{loadError}</span>
+        </div>
       )}
 
       {/* ─── ページヘッダー ─── */}
